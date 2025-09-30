@@ -39,20 +39,29 @@ func (c *Cache) load() error {
 
 func (c *Cache) save() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	dir := filepath.Dir(c.path)
+	dataCopy := make(map[string]interface{}, len(c.data))
+	for k, v := range c.data {
+		dataCopy[k] = v
+	}
+	path := c.path
+	c.mu.Unlock()
+
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	file, err := os.Create(c.path)
+
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
-	return enc.Encode(c.data)
+	return enc.Encode(dataCopy)
 }
+
 
 func (c *Cache) Get(key string) (string, bool) {
 	c.mu.Lock()
