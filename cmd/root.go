@@ -42,7 +42,7 @@ var loadingMessages = []string{
 }
 
 func randomLoadingMessage() string {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return loadingMessages[rand.Intn(len(loadingMessages))]
 }
 
