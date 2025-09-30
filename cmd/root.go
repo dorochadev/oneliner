@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/user"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/briandowns/spinner"
 	"github.com/dorochadev/oneliner/config"
 	"github.com/dorochadev/oneliner/internal/cache"
 	"github.com/dorochadev/oneliner/internal/executor"
@@ -32,6 +35,23 @@ var (
 	explanationStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("8"))
 )
+
+var loadingMessages = []string{
+	"⚙️ Generating one-liner...",
+	"🔍 Finding the simplest command...",
+	"🧠 Thinking through your request...",
+	"💡 Turning your idea into code...",
+	"🔧 Assembling the perfect command...",
+	"🌐 Mapping intent to shell syntax...",
+	"🧩 Piecing together your request...",
+	"📦 Packing it all into one clean line...",
+	"🪄 Translating thoughts into terminal language...",
+}
+
+func randomLoadingMessage() string {
+	rand.Seed(time.Now().UnixNano())
+	return loadingMessages[rand.Intn(len(loadingMessages))]
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "oneliner [query]",
@@ -106,13 +126,22 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// generate prompt
 	promptText, err := prompt.Build(ctx, cfg, explainFlag)
-
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
-	
+
+	// --- Spinner while waiting for LLM ---
+	loadingMsg := randomLoadingMessage()
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Prefix = loadingMsg + " "
+	s.Start()
+
 	// generate command
 	response, err := llmInstance.GenerateCommand(promptText)
+
+	s.Stop()
+	fmt.Print("\r") // Clear spinner line
+
 	if err != nil {
 		return fmt.Errorf("failed to generate command: %w", err)
 	}

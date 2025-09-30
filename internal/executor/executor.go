@@ -127,7 +127,7 @@ func Execute(command string, cfg *config.Config) error {
 
 	// Start spinner
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Prefix = "  "
+	s.Prefix = " Running command..."
 	s.Start()
 
 	// Always run the command as given
@@ -144,7 +144,7 @@ func Execute(command string, cfg *config.Config) error {
 		return fmt.Errorf("command execution failed: %w", err)
 	}
 
-	fmt.Println(successStyle.Render("  ✓ Done"))
+	fmt.Println(successStyle.Render(" ✓ Done"))
 	fmt.Println()
 
 	return nil
