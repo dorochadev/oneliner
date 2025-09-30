@@ -133,7 +133,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// --- Spinner while waiting for LLM ---
 	loadingMsg := randomLoadingMessage()
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = loadingMsg + " "
 	s.Start()
 

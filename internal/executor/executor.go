@@ -110,7 +110,7 @@ func Execute(command string, cfg *config.Config) error {
 		fmt.Println(commandStyle.Render("  → " + command))
 	}
 
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = " Running command..."
 	s.Start()
 

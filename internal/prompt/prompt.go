@@ -17,8 +17,8 @@ type Context struct {
 }
 
 const (
-	minQueryLength = 8
-	minWordCount   = 3
+	minQueryLength = 5
+	minWordCount   = 2
 )
 
 // Build constructs the prompt for the LLM. Returns an error if the query is too short or vague.
