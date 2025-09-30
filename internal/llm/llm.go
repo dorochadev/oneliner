@@ -39,9 +39,7 @@ func New(cfg *config.Config) (LLM, error) {
 	}
 }
 
-//
-// ─── LOCAL LLM ───────────────────────────────────────────────────────────────
-//
+// ─── LOCAL LLM
 
 type LocalLLM struct {
 	Endpoint string
@@ -106,9 +104,7 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 	return result.Result, nil
 }
 
-//
-// ─── OPENAI ──────────────────────────────────────────────────────────────────
-//
+// ─── OPENAI
 
 type OpenAI struct {
 	APIKey string
@@ -184,9 +180,7 @@ func (o *OpenAI) GenerateCommand(prompt string) (string, error) {
 	return result.Choices[0].Message.Content, nil
 }
 
-//
-// ─── CLAUDE ──────────────────────────────────────────────────────────────────
-//
+// ─── CLAUDE
 
 type Claude struct {
 	APIKey string

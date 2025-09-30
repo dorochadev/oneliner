@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/briandowns/spinner"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
 	"github.com/dorochadev/oneliner/internal/cache"
 	"github.com/dorochadev/oneliner/internal/executor"
@@ -20,20 +20,13 @@ import (
 )
 
 var (
-	executeFlag bool
-	sudoFlag    bool
-	explainFlag bool
-	configPath  string
-
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("12"))
-
-	commandStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10"))
-
-	explanationStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8"))
+	executeFlag     bool
+	sudoFlag        bool
+	explainFlag     bool
+	configPath      string
+	headerStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	commandStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
 var loadingMessages = []string{

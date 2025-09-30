@@ -28,7 +28,7 @@ func (c *Cache) load() error {
 	defer c.mu.Unlock()
 	file, err := os.Open(c.path)
 	if os.IsNotExist(err) {
-		return nil // no cache yet
+		return nil
 	}
 	if err != nil {
 		return err

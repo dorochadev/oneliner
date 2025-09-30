@@ -15,27 +15,12 @@ import (
 )
 
 var (
-	warningStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("11"))
-
-	promptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("12"))
-
-	commandStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10"))
-
-	cancelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9")).
-			Bold(true)
-
-	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10")).
-			Bold(true)
-
-	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("12")).
-			Bold(true)
+	warningStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	promptStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	cancelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
 )
 
 type confirmModel struct {
@@ -125,12 +110,10 @@ func Execute(command string, cfg *config.Config) error {
 		fmt.Println(commandStyle.Render("  → " + command))
 	}
 
-	// Start spinner
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Prefix = " Running command..."
 	s.Start()
 
-	// Always run the command as given
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -26,7 +26,6 @@ func Load(customPath string) (*Config, error) {
 		path = filepath.Join(home, ".config", "oneliner", "config.json")
 	}
 
-	// create default config if it doesn't exist
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := createDefault(path); err != nil {
 			return nil, fmt.Errorf("failed to create default config: %w", err)
