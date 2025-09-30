@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -18,6 +20,21 @@ var (
 
 	promptStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("12"))
+
+	commandStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("10"))
+
+	cancelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")).
+			Bold(true)
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("10")).
+			Bold(true)
+
+	headerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("12")).
+			Bold(true)
 )
 
 type confirmModel struct {
@@ -69,14 +86,14 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m confirmModel) View() string {
 	return fmt.Sprintf(
 		"\n%s\n\n%s %s\n\n",
-		warningStyle.Render("  ⚠ This command will be executed with sudo privileges!"),
-		promptStyle.Render("  Continue? (y/n):"),
+		warningStyle.Render("⚠ This command will be executed with sudo privileges!"),
+		promptStyle.Render("Continue? (y/n):"),
 		m.textInput.View(),
 	)
 }
 
 func Execute(command string, cfg *config.Config) error {
-	// show warning prompt
+	// show confirmation
 	p := tea.NewProgram(initialModel())
 	m, err := p.Run()
 	if err != nil {
@@ -85,26 +102,46 @@ func Execute(command string, cfg *config.Config) error {
 
 	result := m.(confirmModel)
 	if result.cancelled || !result.confirmed {
-		fmt.Println("\n  Execution cancelled.\n")
+		fmt.Println()
+		fmt.Println(cancelStyle.Render("  ✘ Execution cancelled."))
+		fmt.Println()
 		return nil
 	}
 
-	//fmt.Println()
-	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render("  Executing..."))
-	fmt.Println()
+	fmt.Println(headerStyle.Render("  Running command with sudo:"))
+	fmt.Println(commandStyle.Render("  → " + command))
 
-	// execute with sudo
+	// Prompt for sudo password first (to avoid blocking spinner later)
+	sudoCmd := exec.Command("sudo", "-v")
+	sudoCmd.Stdin = os.Stdin
+	sudoCmd.Stdout = os.Stdout
+	sudoCmd.Stderr = os.Stderr
+
+	if err := sudoCmd.Run(); err != nil {
+		fmt.Println()
+		return fmt.Errorf("failed to authenticate with sudo: %w", err)
+	}
+
+	// Start spinner
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Prefix = "  "
+	s.Start()
+
+	// Execute command with sudo
 	cmd := exec.Command("sudo", "sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	s.Stop()
+	fmt.Println()
+
+	if err != nil {
 		return fmt.Errorf("command execution failed: %w", err)
 	}
 
-	//fmt.Println()
-	//fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render("  ✓ Execution complete"))
+	fmt.Println(successStyle.Render("  ✓ Done"))
 	fmt.Println()
 
 	return nil

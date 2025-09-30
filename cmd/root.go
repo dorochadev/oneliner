@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
+	"github.com/dorochadev/oneliner/internal/cache"
 	"github.com/dorochadev/oneliner/internal/executor"
 	"github.com/dorochadev/oneliner/internal/llm"
 	"github.com/dorochadev/oneliner/internal/prompt"
@@ -62,6 +63,30 @@ func run(cmd *cobra.Command, args []string) error {
 	// gather system context
 	ctx := gatherContext(args)
 
+	// set up cache (default: ~/.cache/oneliner/commands.json)
+	home, _ := os.UserHomeDir()
+	cachePath := os.Getenv("ONELINER_CACHE_PATH")
+	if cachePath == "" {
+		cachePath = home + "/.cache/oneliner/commands.json"
+	}
+	commandCache, _ := cache.New(cachePath)
+
+	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag)
+	if cached, ok := commandCache.Get(hash); ok {
+		command, explanation := parseResponse(cached)
+		fmt.Println(commandStyle.Render(command))
+		if explainFlag && explanation != "" {
+			fmt.Println(headerStyle.Render("  Explanation:"))
+			fmt.Println(explanationStyle.Render("  → " + explanation))
+		}
+		if executeFlag {
+			if err := executor.Execute(command, cfg); err != nil {
+				return fmt.Errorf("failed to execute command: %w", err)
+			}
+		}
+		return nil
+	}
+
 	// create LLM instance
 	llmInstance, err := llm.New(cfg)
 	if err != nil {
@@ -73,26 +98,23 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// generate command
 	response, err := llmInstance.GenerateCommand(promptText)
-
 	if err != nil {
 		return fmt.Errorf("failed to generate command: %w", err)
 	}
+
+	// save to cache
+	_ = commandCache.Set(hash, response)
 
 	// parse response (command and optional explanation)
 	command, explanation := parseResponse(response)
 
 	// print output with styling
-	fmt.Println()
-	fmt.Println(headerStyle.Render("  Command:"))
-	fmt.Println(commandStyle.Render("  " + command))
+	fmt.Println(commandStyle.Render(command))
 
 	if explainFlag && explanation != "" {
-		fmt.Println()
 		fmt.Println(headerStyle.Render("  Explanation:"))
-		fmt.Println(explanationStyle.Render("  " + explanation))
+		fmt.Println(explanationStyle.Render("  → " + explanation))
 	}
-	fmt.Println()
-	fmt.Println()
 
 	// execute if requested
 	if executeFlag {
@@ -128,25 +150,29 @@ func gatherContext(args []string) prompt.Context {
 }
 
 func parseResponse(response string) (command string, explanation string) {
-    r := strings.TrimSpace(response)
+	r := strings.TrimSpace(response)
 
-    // remove markdown code blocks
-    r = strings.TrimPrefix(r, "```bash")
-    r = strings.TrimPrefix(r, "```sh")
-    r = strings.TrimPrefix(r, "```")
-    r = strings.TrimSuffix(r, "```")
-    r = strings.TrimSpace(r)
+	// remove any surrounding triple backticks with optional language
+	r = strings.TrimPrefix(r, "```bash")
+	r = strings.TrimPrefix(r, "```sh")
+	r = strings.TrimPrefix(r, "```shell")
+	r = strings.TrimPrefix(r, "```text")
+	r = strings.TrimPrefix(r, "```")
+	r = strings.TrimSuffix(r, "```")
+	r = strings.TrimSpace(r)
 
-    // if there's an explanation marker
-    if strings.Contains(r, "EXPLANATION:") {
-        parts := strings.Split(r, "EXPLANATION:")
-        command = strings.TrimSpace(parts[0])
-        if len(parts) > 1 {
-            explanation = strings.TrimSpace(parts[1])
-        }
-    } else {
-        command = r
-    }
+	// split by EXPLANATION marker
+	if strings.Contains(r, "EXPLANATION:") {
+		parts := strings.SplitN(r, "EXPLANATION:", 2)
+		command = strings.TrimSpace(parts[0])
+		explanation = strings.TrimSpace(parts[1])
+	} else {
+		command = r
+	}
 
-    return command, explanation
+	// remove any remaining backticks inside the command/explanation
+	command = strings.ReplaceAll(command, "```", "")
+	explanation = strings.ReplaceAll(explanation, "```", "")
+
+	return command, explanation
 }

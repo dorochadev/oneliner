@@ -85,7 +85,6 @@ oneliner "find all jpg files larger than 10MB"
 output:
 
 ```
-  command:
   find . -type f -name "*.jpg" -size +10M
 ```
 
@@ -110,11 +109,10 @@ oneliner --explain "compress all log files"
 output:
 
 ```
-  command:
   find . -name "*.log" -exec gzip {} \;
 
   explanation:
-  searches for all .log files and compresses them using gzip
+  - searches for all .log files and compresses them using gzip
 ```
 
 ### custom config file
