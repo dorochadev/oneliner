@@ -69,8 +69,26 @@ nano ~/.config/oneliner/config.json
 * `llm_api`: api provider (`openai` or `claude`)
 * `api_key`: your api key
 * `model`: model to use (e.g., `gpt-4o-mini`, `claude-sonnet-4-20250514`)
-* `default_shell`: preferred shell (`bash`, `zsh`, `fish`)
+* `default_shell`: preferred shell (`bash`, `zsh`, `fish`, `powershell`)
 * `safe_execution`: enable safety checks (recommended: `true`)
+
+#### example: use fish or powershell
+
+To generate commands for fish shell:
+
+```json
+{
+  "default_shell": "fish"
+}
+```
+
+To generate commands for PowerShell:
+
+```json
+{
+  "default_shell": "powershell"
+}
+```
 
 ## usage
 

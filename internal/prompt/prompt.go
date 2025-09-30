@@ -32,6 +32,14 @@ func Build(ctx Context, cfg *config.Config, explain bool) string {
 	b.WriteString(fmt.Sprintf("- Username: %s\n", ctx.Username))
 	b.WriteString(fmt.Sprintf("- Shell: %s\n\n", ctx.Shell))
 
+	// Add shell-specific notes for fish and PowerShell
+	switch strings.ToLower(shell) {
+	case "fish":
+		b.WriteString("Use idiomatic fish shell syntax. Do not use bashisms.\n")
+	case "powershell":
+		b.WriteString("Use idiomatic PowerShell syntax. Do not use bash or Unix shell syntax.\n")
+	}
+
 	if explain {
 		b.WriteString("Output the command on the first line, then add 'EXPLANATION:' on a new line, followed by a brief explanation of what the command does.\n")
 	} else {
