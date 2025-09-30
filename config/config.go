@@ -12,7 +12,6 @@ type Config struct {
 	APIKey           string `json:"api_key"`
 	Model            string `json:"model"`
 	DefaultShell     string `json:"default_shell"`
-	SafeExecution    bool   `json:"safe_execution"`
 	LocalLLMEndpoint string `json:"local_llm_endpoint"`
 	ClaudeMaxTokens  int    `json:"claude_max_tokens"`
 }
@@ -57,7 +56,6 @@ func createDefault(path string) error {
 		APIKey:           "",
 		Model:            "gpt-4.1-nano",
 		DefaultShell:     "bash",
-		SafeExecution:    true,
 		LocalLLMEndpoint: "http://localhost:8000/v1/completions",
 		ClaudeMaxTokens:  1024,
 	}
