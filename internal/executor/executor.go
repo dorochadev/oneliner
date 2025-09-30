@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+    "runtime"
 
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -15,12 +16,12 @@ import (
 )
 
 var (
-	warningStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	promptStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-	commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	cancelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
-	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
+	warningStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	promptStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	commandStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	cancelStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	successStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	headerStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
 )
 
 type confirmModel struct {
@@ -79,9 +80,24 @@ func (m confirmModel) View() string {
 }
 
 func Execute(command string, cfg *config.Config) error {
-	// If the command starts with 'sudo', show sudo warning and prompt
-	needsSudo := strings.HasPrefix(strings.TrimSpace(command), "sudo ")
-	if needsSudo {
+	trimmed := strings.TrimSpace(command)
+	assessment := AssessCommandRisk(trimmed)
+
+	// f any risks detected, show warning and ask for confirmation
+	if len(assessment.Reasons) > 0 {
+		fmt.Println()
+		fmt.Println(warningStyle.Render("⚠ Dangerous command detected"))
+		fmt.Println()
+		fmt.Println(promptStyle.Render("The command looks potentially destructive for the following reasons:"))
+		for i, r := range assessment.Reasons {
+			fmt.Printf("  %d) %s\n", i+1, r)
+		}
+		fmt.Println()
+		fmt.Println(promptStyle.Render("Command to be executed:"))
+		fmt.Println(commandStyle.Render("  → " + trimmed))
+		fmt.Println()
+		fmt.Println(promptStyle.Render("This action can cause data loss or system damage. Continue? (y/n):"))
+
 		p := tea.NewProgram(initialModel())
 		m, err := p.Run()
 		if err != nil {
@@ -94,9 +110,16 @@ func Execute(command string, cfg *config.Config) error {
 			fmt.Println()
 			return nil
 		}
+		// user confirmed, continue
+	}
+
+	needsSudo := strings.HasPrefix(trimmed, "sudo ")
+
+	if needsSudo {
 		fmt.Println(headerStyle.Render("  Running command with sudo:"))
-		fmt.Println(commandStyle.Render("  → " + command))
-		// Prompt for sudo password first (to avoid blocking spinner later)
+		fmt.Println(commandStyle.Render("  → " + trimmed))
+
+		// Prompt for sudo password first (Linux/macOS)
 		sudoCmd := exec.Command("sudo", "-v")
 		sudoCmd.Stdin = os.Stdin
 		sudoCmd.Stdout = os.Stdout
@@ -106,15 +129,23 @@ func Execute(command string, cfg *config.Config) error {
 			return fmt.Errorf("failed to authenticate with sudo: %w", err)
 		}
 	} else {
+		fmt.Println()
 		fmt.Println(headerStyle.Render("  Running command:"))
-		fmt.Println(commandStyle.Render("  → " + command))
+		fmt.Println(commandStyle.Render("  → " + trimmed))
 	}
 
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Prefix = " Running command..."
+	s.Prefix = " ..."
 	s.Start()
 
-	cmd := exec.Command("sh", "-c", command)
+	shell := "sh"
+	args := []string{"-c", trimmed}
+	if runtime.GOOS == "windows" {
+		shell = "cmd"
+		args = []string{"/C", trimmed}
+	}
+
+	cmd := exec.Command(shell, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
