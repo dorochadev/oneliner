@@ -8,7 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
+	"log"
+	"path/filepath"
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
@@ -131,7 +132,6 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
 
-	// --- Spinner while waiting for LLM ---
 	loadingMsg := randomLoadingMessage()
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = loadingMsg + " "
@@ -141,7 +141,7 @@ func run(cmd *cobra.Command, args []string) error {
 	response, err := llmInstance.GenerateCommand(promptText)
 
 	s.Stop()
-	fmt.Print("\r") // Clear spinner line
+	fmt.Print("\r")
 
 	if err != nil {
 		return fmt.Errorf("failed to generate command: %w", err)
