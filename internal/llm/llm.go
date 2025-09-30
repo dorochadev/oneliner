@@ -26,12 +26,90 @@ func New(cfg *config.Config) (LLM, error) {
 			APIKey: cfg.APIKey,
 			Model:  cfg.Model,
 		}, nil
+	case "local":
+		if cfg.LocalLLMEndpoint == "" {
+			return nil, fmt.Errorf("local_llm_endpoint must be set in config for local LLM usage")
+		}
+		return &LocalLLM{
+			Endpoint: cfg.LocalLLMEndpoint,
+			Model:    cfg.Model,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM API: %s", cfg.LLMAPI)
 	}
 }
 
-// openAI implementation
+//
+// ─── LOCAL LLM ───────────────────────────────────────────────────────────────
+//
+
+type LocalLLM struct {
+	Endpoint string
+	Model    string
+}
+
+type localLLMRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+}
+
+type localLLMResponse struct {
+	Result string `json:"result"`
+}
+
+func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
+	if l.Endpoint == "" {
+		return "", fmt.Errorf("local LLM endpoint not configured")
+	}
+
+	reqBody := localLLMRequest{
+		Model:  l.Model,
+		Prompt: prompt,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", l.Endpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("local LLM error: %s", string(body))
+	}
+
+	var result localLLMResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", err
+	}
+
+	if result.Result == "" {
+		return "", fmt.Errorf("no response from local LLM")
+	}
+
+	return result.Result, nil
+}
+
+//
+// ─── OPENAI ──────────────────────────────────────────────────────────────────
+//
+
 type OpenAI struct {
 	APIKey string
 	Model  string
@@ -106,7 +184,10 @@ func (o *OpenAI) GenerateCommand(prompt string) (string, error) {
 	return result.Choices[0].Message.Content, nil
 }
 
-// claude implementation
+//
+// ─── CLAUDE ──────────────────────────────────────────────────────────────────
+//
+
 type Claude struct {
 	APIKey string
 	Model  string

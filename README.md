@@ -162,9 +162,6 @@ oneliner "test if port 8080 is open on localhost"
 ## future enhancements
 
 * plugin system for common tools (ffmpeg, imagemagick, jq)
-* command caching for frequently used queries
-* additional shell support (fish, powershell)
-* local llm integration
 * command history and favorites?
 
 ## security

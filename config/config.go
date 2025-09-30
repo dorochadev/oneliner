@@ -8,11 +8,12 @@ import (
 )
 
 type Config struct {
-	LLMAPI        string `json:"llm_api"`
-	APIKey        string `json:"api_key"`
-	Model         string `json:"model"`
-	DefaultShell  string `json:"default_shell"`
-	SafeExecution bool   `json:"safe_execution"`
+	LLMAPI           string `json:"llm_api"`
+	APIKey           string `json:"api_key"`
+	Model            string `json:"model"`
+	DefaultShell     string `json:"default_shell"`
+	SafeExecution    bool   `json:"safe_execution"`
+	LocalLLMEndpoint string `json:"local_llm_endpoint"`
 }
 
 func Load(customPath string) (*Config, error) {
@@ -52,11 +53,12 @@ func createDefault(path string) error {
 	}
 
 	defaultConfig := Config{
-		LLMAPI:        "openai",
-		APIKey:        "",
-		Model:         "gpt-4o-mini",
-		DefaultShell:  "bash",
-		SafeExecution: true,
+		LLMAPI:           "openai",
+		APIKey:           "",
+		Model:            "gpt-4o-mini",
+		DefaultShell:     "bash",
+		SafeExecution:    true,
+		LocalLLMEndpoint: "http://localhost:8000/v1/completions",
 	}
 
 	data, err := json.MarshalIndent(defaultConfig, "", "  ")
