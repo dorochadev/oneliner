@@ -105,8 +105,12 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// generate prompt
-	promptText := prompt.Build(ctx, cfg, explainFlag)
+	promptText, err := prompt.Build(ctx, cfg, explainFlag)
 
+	if err != nil {
+		return fmt.Errorf("failed to build prompt: %w", err)
+	}
+	
 	// generate command
 	response, err := llmInstance.GenerateCommand(promptText)
 	if err != nil {

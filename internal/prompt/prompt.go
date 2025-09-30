@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,7 +16,20 @@ type Context struct {
 	Shell    string
 }
 
-func Build(ctx Context, cfg *config.Config, explain bool) string {
+// Minimum query length and word count
+const (
+	minQueryLength = 8
+	minWordCount   = 3
+)
+
+// Build constructs the prompt for the LLM. Returns an error if the query is too short or vague.
+func Build(ctx Context, cfg *config.Config, explain bool) (string, error) {
+	trimmedQuery := strings.TrimSpace(ctx.Query)
+	wordCount := len(strings.Fields(trimmedQuery))
+	if len(trimmedQuery) < minQueryLength || wordCount < minWordCount {
+		return "", errors.New("query is too short or vague; please provide a more detailed request")
+	}
+
 	shell := cfg.DefaultShell
 	if shell == "" {
 		shell = "bash"
@@ -55,5 +69,6 @@ func Build(ctx Context, cfg *config.Config, explain bool) string {
 		b.WriteString("Avoid destructive or dangerous operations.\n")
 	}
 
-	return b.String()
+	b.WriteString("If the prompt doesn't contain enough information, inform them of such. \n")
+	return b.String(), nil
 }
