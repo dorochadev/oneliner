@@ -59,10 +59,6 @@ func Build(ctx Context, cfg *config.Config, explain bool) (string, error) {
 		b.WriteString("Output only the command, nothing else.\n")
 	}
 
-	if cfg.SafeExecution {
-		b.WriteString("Avoid destructive or dangerous operations.\n")
-	}
-
 	b.WriteString("If the prompt doesn't contain enough information, inform them of such. \n")
 	return b.String(), nil
 }
