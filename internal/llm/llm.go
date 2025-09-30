@@ -23,8 +23,9 @@ func New(cfg *config.Config) (LLM, error) {
 		}, nil
 	case "claude":
 		return &Claude{
-			APIKey: cfg.APIKey,
-			Model:  cfg.Model,
+			APIKey:    cfg.APIKey,
+			Model:     cfg.Model,
+			MaxTokens: cfg.ClaudeMaxTokens,
 		}, nil
 	case "local":
 		if cfg.LocalLLMEndpoint == "" {
@@ -183,8 +184,9 @@ func (o *OpenAI) GenerateCommand(prompt string) (string, error) {
 // ─── CLAUDE
 
 type Claude struct {
-	APIKey string
-	Model  string
+	APIKey    string
+	Model     string
+	MaxTokens int
 }
 
 type claudeRequest struct {
@@ -209,12 +211,17 @@ func (c *Claude) GenerateCommand(prompt string) (string, error) {
 		return "", fmt.Errorf("Claude API key not configured")
 	}
 
+	maxTokens := c.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 1024 // fallback default
+	}
+
 	reqBody := claudeRequest{
 		Model: c.Model,
 		Messages: []claudeMessage{
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 1024,
+		MaxTokens: maxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
