@@ -23,31 +23,36 @@ func Build(ctx Context, cfg *config.Config, explain bool) string {
 
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("You are a %s shell expert for %s systems.\n", shell, ctx.OS))
-	b.WriteString(fmt.Sprintf("Generate a single, safe one-liner for %s that does the following:\n\n", shell))
+	// Instruction header
+	b.WriteString(fmt.Sprintf("You are an expert in %s on %s systems.\n", shell, ctx.OS))
+	b.WriteString(fmt.Sprintf("Write a single, safe one-liner in %s to:\n", shell))
 	b.WriteString(fmt.Sprintf("%s\n\n", ctx.Query))
-	b.WriteString("Context:\n")
-	b.WriteString(fmt.Sprintf("- OS: %s\n", ctx.OS))
-	b.WriteString(fmt.Sprintf("- Current directory: %s\n", ctx.CWD))
-	b.WriteString(fmt.Sprintf("- Username: %s\n", ctx.Username))
-	b.WriteString(fmt.Sprintf("- Shell: %s\n\n", ctx.Shell))
 
-	// Add shell-specific notes for fish and PowerShell
+	// Minimal context
+	b.WriteString("System:\n")
+	b.WriteString(fmt.Sprintf("  OS: %s\n", ctx.OS))
+	b.WriteString(fmt.Sprintf("  Dir: %s\n", ctx.CWD))
+	b.WriteString(fmt.Sprintf("  User: %s\n", ctx.Username))
+	b.WriteString(fmt.Sprintf("  Shell: %s\n", ctx.Shell))
+
+	// Shell hints
 	switch strings.ToLower(shell) {
 	case "fish":
-		b.WriteString("Use idiomatic fish shell syntax. Do not use bashisms.\n")
+		b.WriteString("Use idiomatic fish syntax only.\n")
 	case "powershell":
-		b.WriteString("Use idiomatic PowerShell syntax. Do not use bash or Unix shell syntax.\n")
+		b.WriteString("Use idiomatic PowerShell. No bash.\n")
 	}
 
+	// Explanation toggle
 	if explain {
-		b.WriteString("Output the command on the first line, then add 'EXPLANATION:' on a new line, followed by a brief explanation of what the command does.\n")
+		b.WriteString("Respond with the command first, then add 'EXPLANATION:' on a new line with a brief explanation.\n")
 	} else {
-		b.WriteString("Output only the command, no explanation or additional text.\n")
+		b.WriteString("Output only the command, nothing else.\n")
 	}
 
+	// Safety
 	if cfg.SafeExecution {
-		b.WriteString("Ensure the command is safe and does not perform destructive operations without explicit confirmation.\n")
+		b.WriteString("Avoid destructive or dangerous operations.\n")
 	}
 
 	return b.String()
