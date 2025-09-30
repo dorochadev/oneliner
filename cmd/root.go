@@ -81,12 +81,20 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx := gatherContext(args)
 
 	// set up cache (default: ~/.cache/oneliner/commands.json)
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("failed to get user home directory: %v", err)
+	}
+	
 	cachePath := os.Getenv("ONELINER_CACHE_PATH")
 	if cachePath == "" {
-		cachePath = home + "/.cache/oneliner/commands.json"
+		cachePath = filepath.Join(home, ".cache", "oneliner", "commands.json")
 	}
-	commandCache, _ := cache.New(cachePath)
+	
+	commandCache, err := cache.New(cachePath)
+	if err != nil {
+		log.Fatalf("failed to create cache: %v", err)
+	}
 
 	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag)
 	if cached, ok := commandCache.Get(hash); ok {
