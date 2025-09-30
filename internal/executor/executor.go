@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -93,33 +94,35 @@ func (m confirmModel) View() string {
 }
 
 func Execute(command string, cfg *config.Config) error {
-	// show confirmation
-	p := tea.NewProgram(initialModel())
-	m, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("failed to show confirmation prompt: %w", err)
-	}
-
-	result := m.(confirmModel)
-	if result.cancelled || !result.confirmed {
-		fmt.Println()
-		fmt.Println(cancelStyle.Render("  ✘ Execution cancelled."))
-		fmt.Println()
-		return nil
-	}
-
-	fmt.Println(headerStyle.Render("  Running command with sudo:"))
-	fmt.Println(commandStyle.Render("  → " + command))
-
-	// Prompt for sudo password first (to avoid blocking spinner later)
-	sudoCmd := exec.Command("sudo", "-v")
-	sudoCmd.Stdin = os.Stdin
-	sudoCmd.Stdout = os.Stdout
-	sudoCmd.Stderr = os.Stderr
-
-	if err := sudoCmd.Run(); err != nil {
-		fmt.Println()
-		return fmt.Errorf("failed to authenticate with sudo: %w", err)
+	// If the command starts with 'sudo', show sudo warning and prompt
+	needsSudo := strings.HasPrefix(strings.TrimSpace(command), "sudo ")
+	if needsSudo {
+		p := tea.NewProgram(initialModel())
+		m, err := p.Run()
+		if err != nil {
+			return fmt.Errorf("failed to show confirmation prompt: %w", err)
+		}
+		result := m.(confirmModel)
+		if result.cancelled || !result.confirmed {
+			fmt.Println()
+			fmt.Println(cancelStyle.Render("  ✘ Execution cancelled."))
+			fmt.Println()
+			return nil
+		}
+		fmt.Println(headerStyle.Render("  Running command with sudo:"))
+		fmt.Println(commandStyle.Render("  → " + command))
+		// Prompt for sudo password first (to avoid blocking spinner later)
+		sudoCmd := exec.Command("sudo", "-v")
+		sudoCmd.Stdin = os.Stdin
+		sudoCmd.Stdout = os.Stdout
+		sudoCmd.Stderr = os.Stderr
+		if err := sudoCmd.Run(); err != nil {
+			fmt.Println()
+			return fmt.Errorf("failed to authenticate with sudo: %w", err)
+		}
+	} else {
+		fmt.Println(headerStyle.Render("  Running command:"))
+		fmt.Println(commandStyle.Render("  → " + command))
 	}
 
 	// Start spinner
@@ -127,13 +130,13 @@ func Execute(command string, cfg *config.Config) error {
 	s.Prefix = "  "
 	s.Start()
 
-	// Execute command with sudo
-	cmd := exec.Command("sudo", "sh", "-c", command)
+	// Always run the command as given
+	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	err = cmd.Run()
+	err := cmd.Run()
 	s.Stop()
 	fmt.Println()
 
