@@ -43,7 +43,9 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().BoolVarP(&executeFlag, "execute", "e", false, "Execute the generated command as-is")
-	rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
+	if runtime.GOOS != "windows" {
+		rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
+	}
 	rootCmd.Flags().BoolVar(&explainFlag, "explain", false, "Show an explanation of the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
 }
@@ -83,7 +85,10 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		if executeFlag {
 			execCmd := command
-			if sudoFlag {
+			if runtime.GOOS == "windows" && sudoFlag {
+				fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
+			}
+			if runtime.GOOS != "windows" && sudoFlag {
 				execCmd = "sudo " + execCmd
 			}
 			if err := executor.Execute(execCmd, cfg); err != nil {
@@ -125,7 +130,10 @@ func run(cmd *cobra.Command, args []string) error {
 	// execute if requested
 	if executeFlag {
 		execCmd := command
-		if sudoFlag {
+		if runtime.GOOS == "windows" && sudoFlag {
+			fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
+		}
+		if runtime.GOOS != "windows" && sudoFlag {
 			execCmd = "sudo " + execCmd
 		}
 		if err := executor.Execute(execCmd, cfg); err != nil {
