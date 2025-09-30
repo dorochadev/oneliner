@@ -18,6 +18,7 @@ import (
 
 var (
 	executeFlag bool
+	sudoFlag    bool
 	explainFlag bool
 	configPath  string
 
@@ -41,7 +42,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&executeFlag, "execute", "e", false, "Execute the generated command with sudo")
+	rootCmd.Flags().BoolVarP(&executeFlag, "execute", "e", false, "Execute the generated command as-is")
+	rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
 	rootCmd.Flags().BoolVar(&explainFlag, "explain", false, "Show an explanation of the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
 }
@@ -80,7 +82,11 @@ func run(cmd *cobra.Command, args []string) error {
 			fmt.Println(explanationStyle.Render("  → " + explanation))
 		}
 		if executeFlag {
-			if err := executor.Execute(command, cfg); err != nil {
+			execCmd := command
+			if sudoFlag {
+				execCmd = "sudo " + execCmd
+			}
+			if err := executor.Execute(execCmd, cfg); err != nil {
 				return fmt.Errorf("failed to execute command: %w", err)
 			}
 		}
@@ -118,7 +124,11 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// execute if requested
 	if executeFlag {
-		if err := executor.Execute(command, cfg); err != nil {
+		execCmd := command
+		if sudoFlag {
+			execCmd = "sudo " + execCmd
+		}
+		if err := executor.Execute(execCmd, cfg); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 	}

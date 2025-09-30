@@ -7,7 +7,7 @@ a cli tool that generates shell one-liners from natural language using llms.
 - 🤖 generate shell commands from natural language
 - 🔌 support for openai and claude apis
 - 🎨 clean, styled terminal output
-- ⚡ optional command execution with sudo
+- ⚡ optional command execution (--execute, --sudo)
 - 📝 explain mode for command breakdowns
 - 🔧 context-aware (os, shell, directory, user)
 
@@ -45,7 +45,8 @@ on first run, a default config file will be created at `~/.config/oneliner/confi
   "api_key": "",
   "model": "gpt-4o-mini",
   "default_shell": "bash",
-  "safe_execution": true
+  "safe_execution": true,
+  "local_llm_endpoint": "http://localhost:8000/v1/completions"
 }
 ```
 
@@ -64,13 +65,25 @@ nano ~/.config/oneliner/config.json
 # set "model": "claude-sonnet-4-20250514"
 ```
 
+
 ### configuration options
 
-* `llm_api`: api provider (`openai` or `claude`)
-* `api_key`: your api key
+* `llm_api`: api provider (`openai`, `claude`, or `local`)
+* `api_key`: your api key (for openai/claude)
 * `model`: model to use (e.g., `gpt-4o-mini`, `claude-sonnet-4-20250514`)
 * `default_shell`: preferred shell (`bash`, `zsh`, `fish`, `powershell`)
 * `safe_execution`: enable safety checks (recommended: `true`)
+* `local_llm_endpoint`: URL for your locally hosted LLM (used if `llm_api` is `local`)
+#### example: use a local LLM
+
+To use a locally hosted LLM API:
+
+```json
+{
+  "llm_api": "local",
+  "local_llm_endpoint": "http://localhost:8000/v1/completions"
+}
+```
 
 #### example: use fish or powershell
 
@@ -106,15 +119,23 @@ output:
   find . -type f -name "*.jpg" -size +10M
 ```
 
+you'll be prompted to confirm before execution.
+
 ### execute the command
 
-use `--execute` or `-e` to run the generated command with sudo:
+Use `--execute` or `-e` to run the generated command as-is:
 
 ```bash
 oneliner --execute "update all system packages"
 ```
 
-you'll be prompted to confirm before execution.
+To run the command with `sudo`, add the `--sudo` flag:
+
+```bash
+oneliner --execute --sudo "update all system packages"
+```
+
+You can use `--sudo` with or without `--execute` (but it only has effect if `--execute` is set). You'll be prompted to confirm before execution.
 
 ### get an explanation
 
@@ -166,7 +187,8 @@ oneliner "test if port 8080 is open on localhost"
 
 ## security
 
-* all commands are executed with `sudo` for safety
-* interactive confirmation required before execution
-* `safe_execution` mode helps prevent destructive commands
-* api keys stored in config file with restrictive permissions (0600)
+* By default, commands are only executed if you use `--execute`.
+* Use `--sudo` to prepend `sudo` to the generated command (not automatic).
+* Interactive confirmation required before execution.
+* `safe_execution` mode helps prevent destructive commands.
+* API keys stored in config file with restrictive permissions (0600).
