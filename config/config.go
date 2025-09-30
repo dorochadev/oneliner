@@ -55,7 +55,7 @@ func createDefault(path string) error {
 	defaultConfig := Config{
 		LLMAPI:           "openai",
 		APIKey:           "",
-		Model:            "gpt-4o-mini",
+		Model:            "gpt-4.1-nano",
 		DefaultShell:     "bash",
 		SafeExecution:    true,
 		LocalLLMEndpoint: "http://localhost:8000/v1/completions",

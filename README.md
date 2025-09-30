@@ -43,7 +43,7 @@ on first run, a default config file will be created at `~/.config/oneliner/confi
 {
   "llm_api": "openai",
   "api_key": "",
-  "model": "gpt-4o-mini",
+  "model": "gpt-4.1-nano",
   "default_shell": "bash",
   "safe_execution": true,
   "local_llm_endpoint": "http://localhost:8000/v1/completions"
@@ -70,7 +70,7 @@ nano ~/.config/oneliner/config.json
 
 * `llm_api`: api provider (`openai`, `claude`, or `local`)
 * `api_key`: your api key (for openai/claude)
-* `model`: model to use (e.g., `gpt-4o-mini`, `claude-sonnet-4-20250514`)
+* `model`: model to use (e.g., `gpt-4.1-nano`, `claude-sonnet-4-20250514`)
 * `default_shell`: preferred shell (`bash`, `zsh`, `fish`, `powershell`)
 * `safe_execution`: enable safety checks (recommended: `true`)
 * `local_llm_endpoint`: URL for your locally hosted LLM (used if `llm_api` is `local`)
