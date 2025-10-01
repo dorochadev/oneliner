@@ -101,10 +101,12 @@ func run(cmd *cobra.Command, args []string) error {
 	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag)
 	if cached, ok := commandCache.Get(hash); ok {
 		command, explanation := parseResponse(cached)
+		//fmt.Println(commandStyle.Render(command))
+		//fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  $ "))
 		fmt.Println(commandStyle.Render(command))
 		if explainFlag && explanation != "" {
-			fmt.Println(headerStyle.Render("  Explanation:"))
-			fmt.Println(explanationStyle.Render("  → " + explanation))
+			//fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  ─────"))
+			fmt.Println(explanationStyle.Render(explanation))
 		}
 		if executeFlag {
 			execCmd := command
@@ -142,7 +144,7 @@ func run(cmd *cobra.Command, args []string) error {
 	response, err := llmInstance.GenerateCommand(promptText)
 
 	s.Stop()
-	fmt.Print("\r")
+	fmt.Print("\r\033[K")
 
 	if err != nil {
 		return fmt.Errorf("failed to generate command: %w", err)
@@ -158,8 +160,8 @@ func run(cmd *cobra.Command, args []string) error {
 	fmt.Println(commandStyle.Render(command))
 
 	if explainFlag && explanation != "" {
-		fmt.Println(headerStyle.Render("  Explanation:"))
-		fmt.Println(explanationStyle.Render("  → " + explanation))
+		//fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  ─────"))
+		fmt.Println(explanationStyle.Render(explanation))
 	}
 
 	// execute if requested
