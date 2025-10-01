@@ -29,6 +29,8 @@ var (
 	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+
 )
 
 var loadingMessages = []string{
@@ -105,8 +107,11 @@ func run(cmd *cobra.Command, args []string) error {
 		//fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  $ "))
 		fmt.Println(commandStyle.Render(command))
 		if explainFlag && explanation != "" {
-			//fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  ─────"))
+			// Horizontal divider
+			fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
+			fmt.Print(dimStyle.Render("  ℹ "))
 			fmt.Println(explanationStyle.Render(explanation))
+			fmt.Println()
 		}
 		if executeFlag {
 			execCmd := command
@@ -160,8 +165,11 @@ func run(cmd *cobra.Command, args []string) error {
 	fmt.Println(commandStyle.Render(command))
 
 	if explainFlag && explanation != "" {
-		//fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  ─────"))
+		// Horizontal divider
+		fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
+		fmt.Print(dimStyle.Render("  ℹ "))
 		fmt.Println(explanationStyle.Render(explanation))
+		fmt.Println()
 	}
 
 	// execute if requested

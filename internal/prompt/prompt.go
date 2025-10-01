@@ -54,7 +54,7 @@ func Build(ctx Context, cfg *config.Config, explain bool) (string, error) {
 	}
 
 	if explain {
-		b.WriteString("Respond with the command first, then add 'EXPLANATION:' on a new line with a brief explanation.\n")
+		b.WriteString("Respond with the command first, then add 'EXPLANATION:' on a new line with a *very* brief explanation.\n")
 	} else {
 		b.WriteString("Output only the command, nothing else.\n")
 	}
