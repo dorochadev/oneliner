@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
-    "runtime"
 
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -16,21 +16,22 @@ import (
 )
 
 var (
-	warningStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	promptStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-	commandStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	cancelStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	successStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
-	headerStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
+	warningStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	promptStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	cancelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
 )
 
 type confirmModel struct {
-	textInput textinput.Model
-	confirmed bool
-	cancelled bool
+	textInput       textinput.Model
+	confirmed       bool
+	cancelled       bool
+	showSudoWarning bool
 }
 
-func initialModel() confirmModel {
+func initialModel(showSudoWarning bool) confirmModel {
 	ti := textinput.New()
 	ti.Placeholder = "y/n"
 	ti.Focus()
@@ -38,7 +39,8 @@ func initialModel() confirmModel {
 	ti.Width = 20
 
 	return confirmModel{
-		textInput: ti,
+		textInput:       ti,
+		showSudoWarning: showSudoWarning,
 	}
 }
 
@@ -71,20 +73,29 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m confirmModel) View() string {
+	if m.showSudoWarning {
+		return fmt.Sprintf(
+			"\n%s\n\n%s %s\n\n",
+			warningStyle.Render("⚠ This command will be executed with sudo privileges!"),
+			promptStyle.Render("Continue? (y/n):"),
+			m.textInput.View(),
+		)
+	}
 	return fmt.Sprintf(
-		"\n%s\n\n%s %s\n\n",
-		warningStyle.Render("⚠ This command will be executed with sudo privileges!"),
-		promptStyle.Render("Continue? (y/n):"),
+		"%s\n\n",
 		m.textInput.View(),
 	)
 }
 
-func Execute(command string, cfg *config.Config) error {
+func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 	trimmed := strings.TrimSpace(command)
-	assessment := AssessCommandRisk(trimmed)
+	assessment := AssessCommandRisk(trimmed, usedSudoFlag)
 
-	// f any risks detected, show warning and ask for confirmation
-	if len(assessment.Reasons) > 0 {
+	needsSudo := strings.HasPrefix(trimmed, "sudo ")
+	hasRiskAssessmentIssues := len(assessment.Reasons) > 0
+
+	// If any risks detected, show warning and ask for confirmation ONCE
+	if hasRiskAssessmentIssues {
 		fmt.Println()
 		fmt.Println(warningStyle.Render("⚠ Dangerous command detected"))
 		fmt.Println()
@@ -96,9 +107,10 @@ func Execute(command string, cfg *config.Config) error {
 		fmt.Println(promptStyle.Render("Command to be executed:"))
 		fmt.Println(commandStyle.Render("  → " + trimmed))
 		fmt.Println()
-		fmt.Println(promptStyle.Render("This action can cause data loss or system damage. Continue? (y/n):"))
+		fmt.Println(warningStyle.Render("This action can cause data loss or system damage. Continue? (y/n):"))
 
-		p := tea.NewProgram(initialModel())
+		// Don't show sudo warning in bubble tea if risk assessment already caught it
+		p := tea.NewProgram(initialModel(false))
 		m, err := p.Run()
 		if err != nil {
 			return fmt.Errorf("failed to show confirmation prompt: %w", err)
@@ -110,16 +122,43 @@ func Execute(command string, cfg *config.Config) error {
 			fmt.Println()
 			return nil
 		}
-		// user confirmed, continue
-	}
 
-	needsSudo := strings.HasPrefix(trimmed, "sudo ")
+		// User confirmed - if command needs sudo, authenticate silently
+		if needsSudo {
+			sudoCmd := exec.Command("sudo", "-v")
+			sudoCmd.Stdin = os.Stdin
+			sudoCmd.Stdout = os.Stdout
+			sudoCmd.Stderr = os.Stderr
+			if err := sudoCmd.Run(); err != nil {
+				fmt.Println()
+				return fmt.Errorf("failed to authenticate with sudo: %w", err)
+			}
+		}
 
-	if needsSudo {
+		// Show execution message and proceed directly to execution
+		fmt.Println()
+		fmt.Println(headerStyle.Render("  Running command:"))
+		fmt.Println(commandStyle.Render("  → " + trimmed))
+
+	} else if needsSudo && usedSudoFlag {
+		// User explicitly used --sudo flag, show sudo warning
+		fmt.Println()
 		fmt.Println(headerStyle.Render("  Running command with sudo:"))
 		fmt.Println(commandStyle.Render("  → " + trimmed))
 
-		// Prompt for sudo password first (Linux/macOS)
+		p := tea.NewProgram(initialModel(true))
+		m, err := p.Run()
+		if err != nil {
+			return fmt.Errorf("failed to show confirmation prompt: %w", err)
+		}
+		result := m.(confirmModel)
+		if result.cancelled || !result.confirmed {
+			fmt.Println()
+			fmt.Println(cancelStyle.Render("  ✘ Execution cancelled."))
+			fmt.Println()
+			return nil
+		}
+
 		sudoCmd := exec.Command("sudo", "-v")
 		sudoCmd.Stdin = os.Stdin
 		sudoCmd.Stdout = os.Stdout
@@ -128,12 +167,31 @@ func Execute(command string, cfg *config.Config) error {
 			fmt.Println()
 			return fmt.Errorf("failed to authenticate with sudo: %w", err)
 		}
+
+	} else if needsSudo {
+		// Command has sudo but user didn't use --sudo flag and no risk issues
+		// Just show we're running with sudo and authenticate
+		fmt.Println()
+		fmt.Println(headerStyle.Render("  Running command with sudo:"))
+		fmt.Println(commandStyle.Render("  → " + trimmed))
+
+		sudoCmd := exec.Command("sudo", "-v")
+		sudoCmd.Stdin = os.Stdin
+		sudoCmd.Stdout = os.Stdout
+		sudoCmd.Stderr = os.Stderr
+		if err := sudoCmd.Run(); err != nil {
+			fmt.Println()
+			return fmt.Errorf("failed to authenticate with sudo: %w", err)
+		}
+
 	} else {
+		// Normal command, no risks, no sudo
 		fmt.Println()
 		fmt.Println(headerStyle.Render("  Running command:"))
 		fmt.Println(commandStyle.Render("  → " + trimmed))
 	}
 
+	// Execute the command
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = " ..."
 	s.Start()

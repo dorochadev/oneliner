@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
-	"log"
-	"path/filepath"
+
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
@@ -21,12 +22,12 @@ import (
 )
 
 var (
-	executeFlag     bool
-	sudoFlag        bool
-	explainFlag     bool
-	configPath      string
-	headerStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	commandStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	executeFlag      bool
+	sudoFlag         bool
+	explainFlag      bool
+	configPath       string
+	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
@@ -36,7 +37,7 @@ var loadingMessages = []string{
 	"🧠 Thinking through your request...",
 	"💡 Turning your idea into code...",
 	"🔧 Assembling the perfect command...",
-	"🌐 Mapping intent to shell syntax...",
+	"🌊 Mapping intent to shell syntax...",
 	"🧩 Piecing together your request...",
 	"📦 Packing it all into one clean line...",
 	"🪄 Translating thoughts into terminal language...",
@@ -86,12 +87,12 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		log.Fatalf("failed to get user home directory: %v", err)
 	}
-	
+
 	cachePath := os.Getenv("ONELINER_CACHE_PATH")
 	if cachePath == "" {
 		cachePath = filepath.Join(home, ".cache", "oneliner", "commands.json")
 	}
-	
+
 	commandCache, err := cache.New(cachePath)
 	if err != nil {
 		log.Fatalf("failed to create cache: %v", err)
@@ -113,7 +114,7 @@ func run(cmd *cobra.Command, args []string) error {
 			if runtime.GOOS != "windows" && sudoFlag {
 				execCmd = "sudo " + execCmd
 			}
-			if err := executor.Execute(execCmd, cfg); err != nil {
+			if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
 				return fmt.Errorf("failed to execute command: %w", err)
 			}
 		}
@@ -170,7 +171,7 @@ func run(cmd *cobra.Command, args []string) error {
 		if runtime.GOOS != "windows" && sudoFlag {
 			execCmd = "sudo " + execCmd
 		}
-		if err := executor.Execute(execCmd, cfg); err != nil {
+		if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 	}
