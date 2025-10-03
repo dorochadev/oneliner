@@ -30,6 +30,7 @@ var (
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	rng              = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 )
 
@@ -46,8 +47,7 @@ var loadingMessages = []string{
 }
 
 func randomLoadingMessage() string {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	return loadingMessages[rand.Intn(len(loadingMessages))]
+	return loadingMessages[rng.Intn(len(loadingMessages))]
 }
 
 var rootCmd = &cobra.Command{
