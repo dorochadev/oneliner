@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,7 +13,7 @@ import (
 
 type Cache struct {
 	path string
-	mu   sync.RWMutex // use RWMutex for better read concurrency
+	mu   sync.RWMutex
 	data map[string]cacheEntry
 }
 
@@ -37,7 +36,7 @@ func New(path string) (*Cache, error) {
 func (c *Cache) load() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	file, err := os.Open(c.path)
 	if os.IsNotExist(err) {
 		return nil
@@ -46,28 +45,54 @@ func (c *Cache) load() error {
 		return fmt.Errorf("opening cache file: %w", err)
 	}
 	defer file.Close()
-	
-	if err := json.NewDecoder(file).Decode(&c.data); err != nil {
-		return fmt.Errorf("decoding cache: %w", err)
+
+	// Try to decode as new format first
+	var newData map[string]cacheEntry
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&newData); err != nil {
+		// If that fails, try legacy format
+		file.Seek(0, 0) // Reset file pointer
+		var legacyData map[string]string
+		if err := json.NewDecoder(file).Decode(&legacyData); err != nil {
+			return fmt.Errorf("decoding cache (tried both new and legacy format): %w", err)
+		}
+		
+		// Migrate legacy format to new format
+		c.data = make(map[string]cacheEntry, len(legacyData))
+		for k, v := range legacyData {
+			c.data[k] = cacheEntry{
+				Command:   v,
+				Timestamp: time.Now(), // Use current time for legacy entries
+			}
+		}
+		
+		// Save in new format
+		return c.saveNoLock()
 	}
+
+	c.data = newData
 	return nil
 }
 
 func (c *Cache) save() error {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.saveNoLock()
+}
+
+func (c *Cache) saveNoLock() error {
 	dataCopy := make(map[string]cacheEntry, len(c.data))
 	for k, v := range c.data {
 		dataCopy[k] = v
 	}
 	path := c.path
-	c.mu.RUnlock()
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
-	// write to temp file first, then rename for atomic operation
+	// Write to temp file first, then rename for atomic operation
 	tempPath := path + ".tmp"
 	file, err := os.Create(tempPath)
 	if err != nil {

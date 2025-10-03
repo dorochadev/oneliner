@@ -1,7 +1,6 @@
 package prompt
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
