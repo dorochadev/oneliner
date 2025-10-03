@@ -1,24 +1,35 @@
 package cache
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type Cache struct {
 	path string
-	mu   sync.Mutex
-	data map[string]string // key: hash, value: command (with explanation if present)
+	mu   sync.RWMutex // use RWMutex for better read concurrency
+	data map[string]cacheEntry
+}
+
+type cacheEntry struct {
+	Command   string    `json:"command"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func New(path string) (*Cache, error) {
-	c := &Cache{path: path, data: make(map[string]string)}
+	c := &Cache{
+		path: path,
+		data: make(map[string]cacheEntry),
+	}
 	if err := c.load(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading cache: %w", err)
 	}
 	return c, nil
 }
@@ -26,53 +37,77 @@ func New(path string) (*Cache, error) {
 func (c *Cache) load() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	
 	file, err := os.Open(c.path)
 	if os.IsNotExist(err) {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("opening cache file: %w", err)
 	}
 	defer file.Close()
-	return json.NewDecoder(file).Decode(&c.data)
+	
+	if err := json.NewDecoder(file).Decode(&c.data); err != nil {
+		return fmt.Errorf("decoding cache: %w", err)
+	}
+	return nil
 }
 
 func (c *Cache) save() error {
-	c.mu.Lock()
-	dataCopy := make(map[string]interface{}, len(c.data))
+	c.mu.RLock()
+	dataCopy := make(map[string]cacheEntry, len(c.data))
 	for k, v := range c.data {
 		dataCopy[k] = v
 	}
 	path := c.path
-	c.mu.Unlock()
+	c.mu.RUnlock()
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
+		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
-	file, err := os.Create(path)
+	// write to temp file first, then rename for atomic operation
+	tempPath := path + ".tmp"
+	file, err := os.Create(tempPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating temp file: %w", err)
 	}
-	defer file.Close()
 
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
-	return enc.Encode(dataCopy)
+	if err := enc.Encode(dataCopy); err != nil {
+		file.Close()
+		os.Remove(tempPath)
+		return fmt.Errorf("encoding cache: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+
+	if err := os.Rename(tempPath, path); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+
+	return nil
 }
 
-
 func (c *Cache) Get(key string) (string, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	val, ok := c.data[key]
-	return val, ok
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.data[key]
+	return entry.Command, ok
 }
 
 func (c *Cache) Set(key, value string) error {
 	c.mu.Lock()
-	c.data[key] = value
+	c.data[key] = cacheEntry{
+		Command:   value,
+		Timestamp: time.Now(),
+	}
 	c.mu.Unlock()
 	return c.save()
 }
