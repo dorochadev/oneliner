@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"os/user"
@@ -84,48 +83,15 @@ func run(cmd *cobra.Command, args []string) error {
 	// gather system context
 	ctx := gatherContext(args)
 
-	// set up cache (default: ~/.cache/oneliner/commands.json)
-	home, err := os.UserHomeDir()
+	// set up cache
+	commandCache, err := setupCache()
 	if err != nil {
-		log.Fatalf("failed to get user home directory: %v", err)
-	}
-
-	cachePath := os.Getenv("ONELINER_CACHE_PATH")
-	if cachePath == "" {
-		cachePath = filepath.Join(home, ".cache", "oneliner", "commands.json")
-	}
-
-	commandCache, err := cache.New(cachePath)
-	if err != nil {
-		log.Fatalf("failed to create cache: %v", err)
+		return fmt.Errorf("failed to setup cache: %w", err)
 	}
 
 	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag)
 	if cached, ok := commandCache.Get(hash); ok {
-		command, explanation := parseResponse(cached)
-		//fmt.Println(commandStyle.Render(command))
-		//fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("  $ "))
-		fmt.Println(commandStyle.Render(command))
-		if explainFlag && explanation != "" {
-			// Horizontal divider
-			fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
-			fmt.Print(dimStyle.Render("  ℹ "))
-			fmt.Println(explanationStyle.Render(explanation))
-			fmt.Println()
-		}
-		if executeFlag {
-			execCmd := command
-			if runtime.GOOS == "windows" && sudoFlag {
-				fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
-			}
-			if runtime.GOOS != "windows" && sudoFlag {
-				execCmd = "sudo " + execCmd
-			}
-			if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
-				return fmt.Errorf("failed to execute command: %w", err)
-			}
-		}
-		return nil
+		return handleCachedCommand(cached, cfg)
 	}
 
 	// create LLM instance
@@ -140,17 +106,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
 
-	loadingMsg := randomLoadingMessage()
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Prefix = loadingMsg + " "
-	s.Start()
-
-	// generate command
-	response, err := llmInstance.GenerateCommand(promptText)
-
-	s.Stop()
-	fmt.Print("\r\033[K")
-
+	response, err := generateWithSpinner(llmInstance, promptText)
 	if err != nil {
 		return fmt.Errorf("failed to generate command: %w", err)
 	}
@@ -158,34 +114,77 @@ func run(cmd *cobra.Command, args []string) error {
 	// save to cache
 	_ = commandCache.Set(hash, response)
 
-	// parse response (command and optional explanation)
-	command, explanation := parseResponse(response)
+	return handleGeneratedCommand(response, cfg)
+}
 
-	// print output with styling
+func setupCache() (*cache.Cache, error) {
+	cachePath := os.Getenv("ONELINER_CACHE_PATH")
+	if cachePath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		cachePath = filepath.Join(home, ".cache", "oneliner", "commands.json")
+	}
+	return cache.New(cachePath)
+}
+
+func generateWithSpinner(llmInstance llm.LLM, promptText string) (string, error) {
+	loadingMsg := randomLoadingMessage()
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Prefix = loadingMsg + " "
+	s.Start()
+	defer func() {
+		s.Stop()
+		fmt.Print("\r\033[K")
+	}()
+
+	return llmInstance.GenerateCommand(promptText)
+}
+
+func handleCachedCommand(cached string, cfg *config.Config) error {
+	command, explanation := parseResponse(cached)
+	displayCommand(command, explanation)
+	
+	if executeFlag {
+		return executeCommand(command, cfg)
+	}
+	return nil
+}
+
+func handleGeneratedCommand(response string, cfg *config.Config) error {
+	command, explanation := parseResponse(response)
+	displayCommand(command, explanation)
+
+	if executeFlag {
+		return executeCommand(command, cfg)
+	}
+	return nil
+}
+
+func displayCommand(command, explanation string) {
 	fmt.Println(commandStyle.Render(command))
 
 	if explainFlag && explanation != "" {
-		// Horizontal divider
 		fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
 		fmt.Print(dimStyle.Render("  ℹ "))
 		fmt.Println(explanationStyle.Render(explanation))
 		fmt.Println()
 	}
+}
 
-	// execute if requested
-	if executeFlag {
-		execCmd := command
-		if runtime.GOOS == "windows" && sudoFlag {
-			fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
-		}
-		if runtime.GOOS != "windows" && sudoFlag {
-			execCmd = "sudo " + execCmd
-		}
-		if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
-			return fmt.Errorf("failed to execute command: %w", err)
-		}
+func executeCommand(command string, cfg *config.Config) error {
+	execCmd := command
+	
+	if runtime.GOOS == "windows" && sudoFlag {
+		fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
+	} else if runtime.GOOS != "windows" && sudoFlag {
+		execCmd = "sudo " + execCmd
 	}
-
+	
+	if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
+		return fmt.Errorf("failed to execute command: %w", err)
+	}
 	return nil
 }
 
