@@ -68,38 +68,41 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", l.Endpoint, bytes.NewBuffer(jsonData))
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", l.Endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 65 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("making request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10MB limit
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("local LLM error: %s", string(body))
+		return "", fmt.Errorf("local LLM error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	var result localLLMResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", err
+		return "", fmt.Errorf("parsing response: %w", err)
 	}
 
 	if result.Result == "" {
-		return "", fmt.Errorf("no response from local LLM")
+		return "", fmt.Errorf("empty response from local LLM")
 	}
 
 	return result.Result, nil
