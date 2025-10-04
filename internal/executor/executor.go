@@ -78,163 +78,44 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m confirmModel) View() string {
 	if m.showSudoWarning {
 		return fmt.Sprintf(
-			"\n%s %s\n\n%s %s\n\n",
-			warningStyle.Render("⚠"),
-			whiteStyle.Render("Requires elevated privileges"),
-			dimStyle.Render("Proceed?"),
-			cyanStyle.Render("[y/N]"),
+			"\n%s \n\n%s\n%s",
+			warningStyle.Render(" ❯ Requires elevated privileges"),
+			cyanStyle.Render("Proceed with sudo? [y/N]"),
+			m.textInput.View(),
 		)
 	}
+
 	return fmt.Sprintf(
 		"%s\n\n",
 		m.textInput.View(),
 	)
 }
 
-func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
-	trimmed := strings.TrimSpace(command)
-	assessment := AssessCommandRisk(trimmed, usedSudoFlag)
-
-	needsSudo := strings.HasPrefix(trimmed, "sudo ")
-	hasRiskAssessmentIssues := len(assessment.Reasons) > 0
-
-	// If any risks detected, show warning and ask for confirmation ONCE
-	if hasRiskAssessmentIssues {
+func runSudoAuth() error {
+	sudoCmd := exec.Command("sudo", "-v")
+	sudoCmd.Stdin = os.Stdin
+	sudoCmd.Stdout = os.Stdout
+	sudoCmd.Stderr = os.Stderr
+	if err := sudoCmd.Run(); err != nil {
 		fmt.Println()
-		fmt.Print(warningStyle.Render("⚠"))
-		fmt.Print(" ")
-		fmt.Println(whiteStyle.Render("Command requires caution"))
-		fmt.Println()
-
-		// Print box top
-		fmt.Println(dimStyle.Render("  ┌─────────────────────────────────────────"))
-
-		// Print risks
-		for i, r := range assessment.Reasons {
-			fmt.Printf("%s %d) %s\n", dimStyle.Render("  │"), i+1, dimStyle.Render(r))
-		}
-
-		// Print command
-		fmt.Println(dimStyle.Render("  │"))
-		fmt.Print(dimStyle.Render("  │ "))
-		fmt.Print(cyanStyle.Render("❯"))
-		fmt.Print(" ")
-		fmt.Println(commandStyle.Render(trimmed))
-
-		// Print box bottom
-		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
-		fmt.Println()
-
-		fmt.Print(dimStyle.Render("  Proceed? "))
-		fmt.Print(cyanStyle.Render("[y/N] "))
-
-		// Don't show sudo warning in bubble tea if risk assessment already caught it
-		p := tea.NewProgram(initialModel(false))
-		m, err := p.Run()
-		if err != nil {
-			return fmt.Errorf("failed to show confirmation prompt: %w", err)
-		}
-		result := m.(confirmModel)
-		if result.cancelled || !result.confirmed {
-			fmt.Println()
-			fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
-			fmt.Print(" ")
-			fmt.Println(dimStyle.Render("• user aborted"))
-			fmt.Println()
-			return nil
-		}
-
-		// User confirmed - if command needs sudo, authenticate silently
-		if needsSudo {
-			sudoCmd := exec.Command("sudo", "-v")
-			sudoCmd.Stdin = os.Stdin
-			sudoCmd.Stdout = os.Stdout
-			sudoCmd.Stderr = os.Stderr
-			if err := sudoCmd.Run(); err != nil {
-				fmt.Println()
-				return fmt.Errorf("failed to authenticate with sudo: %w", err)
-			}
-		}
-
-		fmt.Println()
-		fmt.Print(dimStyle.Render("  "))
-		fmt.Print(tagStyle.Render(" sudo "))
-		fmt.Print(" ")
-		fmt.Print(cyanStyle.Render("❯"))
-		fmt.Print(" ")
-		fmt.Println(whiteStyle.Render(trimmed))
-
-	} else if needsSudo && usedSudoFlag {
-		// User explicitly used --sudo flag, show sudo warning
-		fmt.Println()
-		fmt.Print(warningStyle.Render("⚠"))
-		fmt.Print(" ")
-		fmt.Print(whiteStyle.Render("Requires elevated privileges"))
-		fmt.Print(" ")
-		fmt.Println(tagStyle.Render(" SUDO "))
-		fmt.Println()
-
-		p := tea.NewProgram(initialModel(true))
-		m, err := p.Run()
-		if err != nil {
-			return fmt.Errorf("failed to show confirmation prompt: %w", err)
-		}
-		result := m.(confirmModel)
-		if result.cancelled || !result.confirmed {
-			fmt.Println()
-			fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
-			fmt.Print(" ")
-			fmt.Println(dimStyle.Render("• user aborted"))
-			fmt.Println()
-			return nil
-		}
-
-		sudoCmd := exec.Command("sudo", "-v")
-		sudoCmd.Stdin = os.Stdin
-		sudoCmd.Stdout = os.Stdout
-		sudoCmd.Stderr = os.Stderr
-		if err := sudoCmd.Run(); err != nil {
-			fmt.Println()
-			return fmt.Errorf("failed to authenticate with sudo: %w", err)
-		}
-
-		fmt.Println()
-		fmt.Print(dimStyle.Render("  "))
-		fmt.Print(tagStyle.Render(" sudo "))
-		fmt.Print(" ")
-		fmt.Print(cyanStyle.Render("❯"))
-		fmt.Print(" ")
-		fmt.Println(whiteStyle.Render(trimmed))
-
-	} else if needsSudo {
-		// Command has sudo but user didn't use --sudo flag and no risk issues
-		fmt.Println()
-		fmt.Print(dimStyle.Render("  "))
-		fmt.Print(tagStyle.Render(" sudo "))
-		fmt.Print(" ")
-		fmt.Print(cyanStyle.Render("❯"))
-		fmt.Print(" ")
-		fmt.Println(whiteStyle.Render(trimmed))
-
-		sudoCmd := exec.Command("sudo", "-v")
-		sudoCmd.Stdin = os.Stdin
-		sudoCmd.Stdout = os.Stdout
-		sudoCmd.Stderr = os.Stderr
-		if err := sudoCmd.Run(); err != nil {
-			fmt.Println()
-			return fmt.Errorf("failed to authenticate with sudo: %w", err)
-		}
-
-	} else {
-		// Normal command, no risks, no sudo
-		fmt.Println()
-		fmt.Print(dimStyle.Render("  "))
-		fmt.Print(cyanStyle.Render("❯"))
-		fmt.Print(" ")
-		fmt.Println(whiteStyle.Render(trimmed))
+		return fmt.Errorf("failed to authenticate with sudo: %w", err)
 	}
+	return nil
+}
 
-	// Execute the command
+func printCommand(cmd string, withSudo bool) {
+	fmt.Println()
+	fmt.Print(dimStyle.Render("  "))
+	if withSudo {
+		fmt.Print(tagStyle.Render(" sudo "))
+		fmt.Print(" ")
+	}
+	fmt.Print(cyanStyle.Render("❯"))
+	fmt.Print(" ")
+	fmt.Println(whiteStyle.Render(cmd))
+}
+
+func runCommand(trimmed string) error {
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = dimStyle.Render("  ◆ ")
 	s.Start()
@@ -269,4 +150,97 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 	fmt.Println()
 
 	return nil
+}
+
+func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
+	trimmed := strings.TrimSpace(command)
+	assessment := AssessCommandRisk(trimmed, usedSudoFlag)
+
+	needsSudo := strings.HasPrefix(trimmed, "sudo ")
+	hasRiskAssessmentIssues := len(assessment.Reasons) > 0
+
+	// Case 1: Risks detected
+	if hasRiskAssessmentIssues {
+		fmt.Println()
+		fmt.Print(warningStyle.Render(" ❯ Command requires caution"))
+		fmt.Println()
+
+		// Print box top
+		fmt.Println(dimStyle.Render("  ┌─────────────────────────────────────────"))
+
+		// Print risks
+		for i, r := range assessment.Reasons {
+			fmt.Printf("%s %d) %s\n", dimStyle.Render("  │"), i+1, dimStyle.Render(r))
+		}
+
+		// Print command
+		fmt.Println(dimStyle.Render("  │"))
+		fmt.Print(dimStyle.Render("  │ "))
+		fmt.Print(cyanStyle.Render("❯"))
+		fmt.Print(" ")
+		fmt.Println(commandStyle.Render(trimmed))
+
+		// Print box bottom
+		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
+		fmt.Println()
+		fmt.Println(cyanStyle.Render("Proceed with sudo? [y/N]"))
+		// Confirm with Bubble Tea
+		p := tea.NewProgram(initialModel(false))
+		m, err := p.Run()
+		if err != nil {
+			return fmt.Errorf("failed to show confirmation prompt: %w", err)
+		}
+		result := m.(confirmModel)
+		if result.cancelled || !result.confirmed {
+			fmt.Println()
+			fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
+			fmt.Print(" ")
+			fmt.Println(dimStyle.Render("• user aborted"))
+			fmt.Println()
+			return nil
+		}
+
+		// Authenticate sudo if required
+		if needsSudo {
+			if err := runSudoAuth(); err != nil {
+				return err
+			}
+		}
+
+		printCommand(trimmed, needsSudo)
+
+		// Case 2: Needs sudo but no risk issues
+	} else if needsSudo {
+		// Show sudo confirmation only if user explicitly passed --sudo
+		if usedSudoFlag {
+			p := tea.NewProgram(initialModel(true))
+			m, err := p.Run()
+			if err != nil {
+				return fmt.Errorf("failed to show confirmation prompt: %w", err)
+			}
+			result := m.(confirmModel)
+			if result.cancelled || !result.confirmed {
+				fmt.Println()
+				fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
+				fmt.Print(" ")
+				fmt.Println(dimStyle.Render("• user aborted"))
+				fmt.Println()
+				return nil
+			}
+		}
+
+		// Authenticate sudo
+		if err := runSudoAuth(); err != nil {
+			return err
+		}
+
+		printCommand(trimmed, true)
+
+		// Case 3: Normal command
+	} else {
+		printCommand(trimmed, false)
+	}
+
+	// Execute the command
+	return runCommand(trimmed)
 }
