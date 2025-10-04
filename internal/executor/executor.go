@@ -192,7 +192,7 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 		}
 		result := m.(confirmModel)
 		if result.cancelled || !result.confirmed {
-			fmt.Println()
+			//fmt.Println()
 			fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
 			fmt.Print(" ")
 			fmt.Println(dimStyle.Render("• user aborted"))
@@ -220,7 +220,7 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 			}
 			result := m.(confirmModel)
 			if result.cancelled || !result.confirmed {
-				fmt.Println()
+				//fmt.Println()
 				fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
 				fmt.Print(" ")
 				fmt.Println(dimStyle.Render("• user aborted"))

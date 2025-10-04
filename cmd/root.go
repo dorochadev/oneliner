@@ -64,7 +64,7 @@ func init() {
 	}
 	rootCmd.Flags().BoolVar(&explainFlag, "explain", false, "Show an explanation of the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
-	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard") // <-- add this line
+	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard")
 
 }
 
