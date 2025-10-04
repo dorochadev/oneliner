@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
@@ -25,12 +26,11 @@ var (
 	sudoFlag         bool
 	explainFlag      bool
 	configPath       string
-	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	clipboardFlag    bool
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	rng              = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 )
 
 var loadingMessages = []string{
@@ -64,6 +64,8 @@ func init() {
 	}
 	rootCmd.Flags().BoolVar(&explainFlag, "explain", false, "Show an explanation of the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
+	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard") // <-- add this line
+
 }
 
 func Execute() {
@@ -145,7 +147,15 @@ func generateWithSpinner(llmInstance llm.LLM, promptText string) (string, error)
 func handleCachedCommand(cached string, cfg *config.Config) error {
 	command, explanation := parseResponse(cached)
 	displayCommand(command, explanation)
-	
+
+	if clipboardFlag {
+		if err := copyToClipboard(command); err != nil {
+			fmt.Fprintln(os.Stderr, "Failed to copy to clipboard:", err)
+		} else {
+			fmt.Println(dimStyle.Render("  📋 Command copied to clipboard"))
+		}
+	}
+
 	if executeFlag {
 		return executeCommand(command, cfg)
 	}
@@ -155,6 +165,14 @@ func handleCachedCommand(cached string, cfg *config.Config) error {
 func handleGeneratedCommand(response string, cfg *config.Config) error {
 	command, explanation := parseResponse(response)
 	displayCommand(command, explanation)
+
+	if clipboardFlag {
+		if err := copyToClipboard(command); err != nil {
+			fmt.Fprintln(os.Stderr, "Failed to copy to clipboard:", err)
+		} else {
+			fmt.Println(dimStyle.Render("  📋 Command copied to clipboard"))
+		}
+	}
 
 	if executeFlag {
 		return executeCommand(command, cfg)
@@ -175,13 +193,13 @@ func displayCommand(command, explanation string) {
 
 func executeCommand(command string, cfg *config.Config) error {
 	execCmd := command
-	
+
 	if runtime.GOOS == "windows" && sudoFlag {
 		fmt.Fprintln(os.Stderr, "Warning: --sudo flag is not supported on Windows and will be ignored.")
 	} else if runtime.GOOS != "windows" && sudoFlag {
 		execCmd = "sudo " + execCmd
 	}
-	
+
 	if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
 		return fmt.Errorf("failed to execute command: %w", err)
 	}
@@ -237,4 +255,8 @@ func parseResponse(response string) (command string, explanation string) {
 	explanation = strings.ReplaceAll(explanation, "```", "")
 
 	return command, explanation
+}
+
+func copyToClipboard(command string) error {
+	return clipboard.WriteAll(command)
 }
