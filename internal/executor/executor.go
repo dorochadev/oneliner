@@ -183,7 +183,7 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 		// Print box bottom
 		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
 		fmt.Println()
-		fmt.Println(cyanStyle.Render("Proceed with sudo? [y/N]"))
+		fmt.Println(cyanStyle.Render("Proceed? [y/N]"))
 		// Confirm with Bubble Tea
 		p := tea.NewProgram(initialModel(false))
 		m, err := p.Run()
