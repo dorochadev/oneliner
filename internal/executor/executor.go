@@ -16,17 +16,15 @@ import (
 )
 
 var (
-	warningStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	promptStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	cancelStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	successStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
-	headerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
-	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	whiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
-	cyanStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
-	tagStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).
-				Background(lipgloss.Color("0")).Padding(0, 1)
+	warningStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	cancelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	whiteStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
+	cyanStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
+	tagStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).
+			Background(lipgloss.Color("0")).Padding(0, 1)
 )
 
 type confirmModel struct {
@@ -107,29 +105,29 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 		fmt.Print(" ")
 		fmt.Println(whiteStyle.Render("Command requires caution"))
 		fmt.Println()
-		
+
 		// Print box top
 		fmt.Println(dimStyle.Render("  ┌─────────────────────────────────────────"))
-		
+
 		// Print risks
 		for i, r := range assessment.Reasons {
 			fmt.Printf("%s %d) %s\n", dimStyle.Render("  │"), i+1, dimStyle.Render(r))
 		}
-		
+
 		// Print command
 		fmt.Println(dimStyle.Render("  │"))
 		fmt.Print(dimStyle.Render("  │ "))
 		fmt.Print(cyanStyle.Render("❯"))
 		fmt.Print(" ")
 		fmt.Println(commandStyle.Render(trimmed))
-		
+
 		// Print box bottom
 		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
 		fmt.Println()
-		
+
 		fmt.Print(dimStyle.Render("  Proceed? "))
 		fmt.Print(cyanStyle.Render("[y/N] "))
-	
+
 		// Don't show sudo warning in bubble tea if risk assessment already caught it
 		p := tea.NewProgram(initialModel(false))
 		m, err := p.Run()
@@ -145,7 +143,7 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 			fmt.Println()
 			return nil
 		}
-		
+
 		// User confirmed - if command needs sudo, authenticate silently
 		if needsSudo {
 			sudoCmd := exec.Command("sudo", "-v")
@@ -208,40 +206,39 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 		fmt.Print(" ")
 		fmt.Println(whiteStyle.Render(trimmed))
 
-		} else if needsSudo {
-			// Command has sudo but user didn't use --sudo flag and no risk issues
+	} else if needsSudo {
+		// Command has sudo but user didn't use --sudo flag and no risk issues
+		fmt.Println()
+		fmt.Print(dimStyle.Render("  "))
+		fmt.Print(tagStyle.Render(" sudo "))
+		fmt.Print(" ")
+		fmt.Print(cyanStyle.Render("❯"))
+		fmt.Print(" ")
+		fmt.Println(whiteStyle.Render(trimmed))
+
+		sudoCmd := exec.Command("sudo", "-v")
+		sudoCmd.Stdin = os.Stdin
+		sudoCmd.Stdout = os.Stdout
+		sudoCmd.Stderr = os.Stderr
+		if err := sudoCmd.Run(); err != nil {
 			fmt.Println()
-			fmt.Print(dimStyle.Render("  "))
-			fmt.Print(tagStyle.Render(" sudo "))
-			fmt.Print(" ")
-			fmt.Print(cyanStyle.Render("❯"))
-			fmt.Print(" ")
-			fmt.Println(whiteStyle.Render(trimmed))
-		
-			sudoCmd := exec.Command("sudo", "-v")
-			sudoCmd.Stdin = os.Stdin
-			sudoCmd.Stdout = os.Stdout
-			sudoCmd.Stderr = os.Stderr
-			if err := sudoCmd.Run(); err != nil {
-				fmt.Println()
-				return fmt.Errorf("failed to authenticate with sudo: %w", err)
-			}
-		
-		} else {
-			// Normal command, no risks, no sudo
-			fmt.Println()
-			fmt.Print(dimStyle.Render("  "))
-			fmt.Print(cyanStyle.Render("❯"))
-			fmt.Print(" ")
-			fmt.Println(whiteStyle.Render(trimmed))
+			return fmt.Errorf("failed to authenticate with sudo: %w", err)
 		}
+
+	} else {
+		// Normal command, no risks, no sudo
+		fmt.Println()
+		fmt.Print(dimStyle.Render("  "))
+		fmt.Print(cyanStyle.Render("❯"))
+		fmt.Print(" ")
+		fmt.Println(whiteStyle.Render(trimmed))
+	}
 
 	// Execute the command
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = dimStyle.Render("  ◆ ")
 	s.Start()
 	startTime := time.Now()
-
 
 	shell := "sh"
 	args := []string{"-c", trimmed}
@@ -270,7 +267,6 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 	fmt.Print(" ")
 	fmt.Printf("%s\n", dimStyle.Render(fmt.Sprintf("• executed in %.1fs", duration.Seconds())))
 	fmt.Println()
-	
 
 	return nil
 }
