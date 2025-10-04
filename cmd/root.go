@@ -151,8 +151,6 @@ func handleCachedCommand(cached string, cfg *config.Config) error {
 	if clipboardFlag {
 		if err := copyToClipboard(command); err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to copy to clipboard:", err)
-		} else {
-			fmt.Println(dimStyle.Render("  📋 Command copied to clipboard"))
 		}
 	}
 
@@ -169,8 +167,6 @@ func handleGeneratedCommand(response string, cfg *config.Config) error {
 	if clipboardFlag {
 		if err := copyToClipboard(command); err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to copy to clipboard:", err)
-		} else {
-			fmt.Println(dimStyle.Render("  📋 Command copied to clipboard"))
 		}
 	}
 
