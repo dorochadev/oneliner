@@ -130,7 +130,7 @@ func detectDestructiveFileOps(cmd string) []string {
 
 			for _, path := range dangerousPaths {
 				if matched, _ := regexp.MatchString(pattern+`.*`+path, normalized); matched {
-					issues = append(issues, fmt.Sprintf("destructive rm command targeting critical path"))
+					issues = append(issues, fmt.Sprint("destructive rm command targeting critical path"))
 					break
 				}
 			}
