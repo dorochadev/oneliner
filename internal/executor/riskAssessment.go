@@ -22,7 +22,6 @@ const (
 type RiskAssessment struct {
 	Level   RiskLevel
 	Reasons []string
-	Flags   []string // specific dangerous patterns detected
 }
 
 // Normalized command for pattern matching (lowercase, collapsed whitespace)
@@ -319,7 +318,6 @@ func AssessCommandRisk(command string, usedSudoFlag bool) RiskAssessment {
 	assessment := RiskAssessment{
 		Level:   RiskNone,
 		Reasons: []string{},
-		Flags:   []string{},
 	}
 
 	if trimmed == "" {
