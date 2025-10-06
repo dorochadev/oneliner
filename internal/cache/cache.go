@@ -56,7 +56,7 @@ func (c *Cache) load() error {
 		if err := json.NewDecoder(file).Decode(&legacyData); err != nil {
 			return fmt.Errorf("decoding cache (tried both new and legacy format): %w", err)
 		}
-		
+
 		// Migrate legacy format to new format
 		c.data = make(map[string]cacheEntry, len(legacyData))
 		for k, v := range legacyData {
@@ -65,7 +65,7 @@ func (c *Cache) load() error {
 				Timestamp: time.Now(), // Use current time for legacy entries
 			}
 		}
-		
+
 		// Save in new format
 		return c.saveNoLock()
 	}
@@ -75,8 +75,8 @@ func (c *Cache) load() error {
 }
 
 func (c *Cache) save() error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.saveNoLock()
 }
 
