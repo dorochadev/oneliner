@@ -114,7 +114,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// save to cache
-	_ = commandCache.Set(hash, response)
+	if err := commandCache.Set(hash, response); err != nil {
+		return fmt.Errorf("warning: failed to write to cache: %v", err)
+	}
 
 	return handleGeneratedCommand(response, cfg)
 }
