@@ -14,6 +14,8 @@ type Config struct {
 	DefaultShell     string `json:"default_shell"`
 	LocalLLMEndpoint string `json:"local_llm_endpoint"`
 	ClaudeMaxTokens  int    `json:"claude_max_tokens"`
+	RequestTimeout   int    `json:"request_timeout"`
+	ClientTimeout    int    `json:"client_timeout"`
 }
 
 func Load(customPath string) (*Config, error) {
@@ -58,6 +60,8 @@ func createDefault(path string) error {
 		DefaultShell:     "bash",
 		LocalLLMEndpoint: "http://localhost:8000/v1/completions",
 		ClaudeMaxTokens:  1024,
+		RequestTimeout:   60,
+		ClientTimeout:    65,
 	}
 
 	data, err := json.MarshalIndent(defaultConfig, "", "  ")

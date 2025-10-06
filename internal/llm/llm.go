@@ -2,11 +2,11 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"context"
 	"time"
 
 	"github.com/dorochadev/oneliner/config"
@@ -34,8 +34,10 @@ func New(cfg *config.Config) (LLM, error) {
 			return nil, fmt.Errorf("local_llm_endpoint must be set in config for local LLM usage")
 		}
 		return &LocalLLM{
-			Endpoint: cfg.LocalLLMEndpoint,
-			Model:    cfg.Model,
+			Endpoint:       cfg.LocalLLMEndpoint,
+			Model:          cfg.Model,
+			RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
+			ClientTimeout:  time.Duration(cfg.ClientTimeout) * time.Second,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM API: %s", cfg.LLMAPI)
@@ -45,8 +47,10 @@ func New(cfg *config.Config) (LLM, error) {
 // ─── LOCAL LLM
 
 type LocalLLM struct {
-	Endpoint string
-	Model    string
+	Endpoint       string
+	Model          string
+	RequestTimeout time.Duration
+	ClientTimeout  time.Duration
 }
 
 type localLLMRequest struct {
@@ -73,7 +77,12 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 		return "", fmt.Errorf("marshaling request: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	timeout := l.RequestTimeout
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Endpoint, bytes.NewBuffer(jsonData))
@@ -82,7 +91,12 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 65 * time.Second}
+	clientTimeout := l.ClientTimeout
+	if clientTimeout == 0 {
+		clientTimeout = 65 * time.Second
+	}
+	client := &http.Client{Timeout: clientTimeout}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("making request: %w", err)
