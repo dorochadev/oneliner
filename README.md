@@ -4,7 +4,7 @@
 
 A smart CLI tool that translates your intent into precise shell commands. No more searching Stack Overflow for that perfect one-liner.
 
-![Demo](https://i.ibb.co/WvqdsCZM/ezgif-7d94eaaac2658e.gif)
+![Demo](./demo-assets-ignore/demo.gif)
 
 ## Features
 
