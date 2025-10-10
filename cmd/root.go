@@ -256,6 +256,7 @@ func parseResponse(response string) (command string, explanation string) {
 	r = strings.TrimPrefix(r, "```bash")
 	r = strings.TrimPrefix(r, "```sh")
 	r = strings.TrimPrefix(r, "```shell")
+	r = strings.TrimPrefix(r, "```powershell")
 	r = strings.TrimPrefix(r, "```text")
 	r = strings.TrimPrefix(r, "```")
 	r = strings.TrimSuffix(r, "```")
