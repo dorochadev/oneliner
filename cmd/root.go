@@ -204,6 +204,31 @@ func executeCommand(command string, cfg *config.Config) error {
 	return nil
 }
 
+func detectShell() string {
+	if runtime.GOOS == "windows" {
+		comspec := os.Getenv("ComSpec")
+		if strings.Contains(strings.ToLower(comspec), "cmd.exe") {
+			return "cmd"
+		}
+
+		if pwsh := os.Getenv("PSModulePath"); pwsh != "" {
+			return "powershell"
+		}
+
+		if os.Getenv("WSL_DISTRO_NAME") != "" {
+			return "bash"
+		}
+
+		return "powershell"
+	}
+
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/bash"
+	}
+	return shell
+}
+
 func gatherContext(args []string) prompt.Context {
 	query := strings.Join(args, " ")
 	cwd, _ := os.Getwd()
@@ -213,10 +238,7 @@ func gatherContext(args []string) prompt.Context {
 		username = u.Username
 	}
 
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/bash"
-	}
+	shell := detectShell()
 
 	return prompt.Context{
 		Query:    query,

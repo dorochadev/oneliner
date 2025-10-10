@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 type Config struct {
@@ -53,11 +55,13 @@ func createDefault(path string) error {
 		return err
 	}
 
+	defaultShell := detectDefaultShell()
+
 	defaultConfig := Config{
 		LLMAPI:           "openai",
 		APIKey:           "",
 		Model:            "gpt-4.1-nano",
-		DefaultShell:     "bash",
+		DefaultShell:     defaultShell,
 		LocalLLMEndpoint: "http://localhost:8000/v1/completions",
 		ClaudeMaxTokens:  1024,
 		RequestTimeout:   60,
@@ -70,4 +74,21 @@ func createDefault(path string) error {
 	}
 
 	return os.WriteFile(path, data, 0600)
+}
+
+func detectDefaultShell() string {
+	osName := strings.ToLower(runtime.GOOS)
+
+	switch osName {
+	case "windows":
+		// If WSL is detected, use bash instead
+		if os.Getenv("WSL_DISTRO_NAME") != "" {
+			return "bash"
+		}
+		return "powershell"
+	case "darwin", "linux":
+		return "bash"
+	default:
+		return "bash"
+	}
 }

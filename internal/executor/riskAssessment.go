@@ -1,7 +1,5 @@
 package executor
 
-// entire class is ai .... i cant lie
-
 import (
 	"fmt"
 	"regexp"
