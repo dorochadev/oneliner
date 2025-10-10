@@ -47,14 +47,18 @@ sudo mv oneliner /usr/local/bin/
 1. **Run oneliner for the first time** - A default config will be created at `~/.config/oneliner/config.json`
    - Oneliner automatically detects your OS during setup and sets the correct default shell
 (bash for Linux/macOS/WSL, powershell for Windows).
+Got it! We can keep the **nano/manual editing instructions** but add a note about the new CLI commands. Here’s a clean way to present it:
 
-2. **Add your API key:**
+### 2. Add your API key
+
+By default, you can manually edit the config file:
 
 ```bash
 nano ~/.config/oneliner/config.json
-```
+````
 
-For OpenAI:
+**OpenAI example:**
+
 ```json
 {
   "llm_api": "openai",
@@ -63,7 +67,8 @@ For OpenAI:
 }
 ```
 
-For Claude:
+**Claude example:**
+
 ```json
 {
   "llm_api": "claude",
@@ -71,6 +76,26 @@ For Claude:
   "model": "claude-sonnet-4-20250514",
   "claude_max_tokens": 1024
 }
+```
+
+**Local LLM example:**
+
+```json
+{
+  "llm_api": "local",
+  "local_llm_endpoint": "http://localhost:8000/v1/completions",
+  "model": "your-model-name"
+}
+```
+
+> 💡 **Tip:** You can also use the new `config` subcommand instead of editing the file manually:
+>
+> ```bash
+> oneliner config set api_key sk-xxxx
+> oneliner config set llm_api openai       # options: openai, claude, local
+> oneliner config set model gpt-4.1-nano  # examples: gpt-4.1-nano, gpt-3.5-turbo
+> ```
+
 ```
 
 3. **Generate your first command:**
