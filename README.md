@@ -45,6 +45,8 @@ sudo mv oneliner /usr/local/bin/
 ## Quick Start
 
 1. **Run oneliner for the first time** - A default config will be created at `~/.config/oneliner/config.json`
+   - Oneliner automatically detects your OS during setup and sets the correct default shell
+(bash for Linux/macOS/WSL, powershell for Windows).
 
 2. **Add your API key:**
 
@@ -151,7 +153,7 @@ oneliner -c "convert all png to jpg with imagemagick"
 | `llm_api` | API provider: `openai`, `claude`, or `local` | `openai` |
 | `api_key` | Your API key (OpenAI or Claude) | `""` |
 | `model` | Model to use | `gpt-4.1-nano` |
-| `default_shell` | Target shell: `bash`, `zsh`, `fish`, `powershell` | `bash` |
+| `default_shell` | Target shell used for generated commands. Automatically set on first run based on your OS (bash for Linux/macOS/WSL, powershell for Windows).: `bash`, `zsh`, `fish`, `powershell` | `OS-detected` |
 | `local_llm_endpoint` | URL for local LLM API | `http://localhost:8000/v1/completions` |
 | `claude_max_tokens` | Max tokens for Claude responses | `1024` |
 | `request_timeout` | Request timeout in seconds | `60` |
