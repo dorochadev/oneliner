@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dorochadev/oneliner/config"
@@ -59,7 +60,9 @@ type localLLMRequest struct {
 }
 
 type localLLMResponse struct {
-	Result string `json:"result"`
+	Choices []struct {
+		Text string `json:"text"`
+	} `json:"choices"`
 }
 
 func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
@@ -117,11 +120,16 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 		return "", fmt.Errorf("parsing response: %w", err)
 	}
 
-	if result.Result == "" {
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("no response from local LLM")
+	}
+
+	text := result.Choices[0].Text
+	if len(strings.TrimSpace(text)) == 0 {
 		return "", fmt.Errorf("empty response from local LLM")
 	}
 
-	return result.Result, nil
+	return text, nil
 }
 
 // ─── OPENAI
