@@ -9,8 +9,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
 	"github.com/spf13/cobra"
+)
+
+var (
+	keyStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
+	valueStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
+	typeStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Bold(true)
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	hintStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
 var configCmd = &cobra.Command{
@@ -32,6 +42,9 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
+		// Store old value for display
+		oldValue := ""
+
 		// reflect over Config struct to set field dynamically
 		v := reflect.ValueOf(cfg).Elem()
 		t := v.Type()
@@ -42,6 +55,15 @@ var setCmd = &cobra.Command{
 			if jsonTag == key {
 				fieldVal := v.FieldByName(field.Name)
 				if fieldVal.CanSet() {
+					// Store old value
+					switch fieldVal.Kind() {
+					case reflect.String:
+						oldValue = fieldVal.String()
+					case reflect.Int:
+						oldValue = strconv.Itoa(int(fieldVal.Int()))
+					}
+
+					// Set new value
 					switch fieldVal.Kind() {
 					case reflect.String:
 						fieldVal.SetString(value)
@@ -82,7 +104,20 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("failed to write config: %w", err)
 		}
 
-		fmt.Printf("Configuration updated: %s = %s\n", key, value)
+		fmt.Println()
+		fmt.Print(successStyle.Render("  ✓ Configuration updated"))
+		fmt.Println()
+		fmt.Println()
+
+		// Show the change
+		fmt.Printf("  %s\n", keyStyle.Render(key))
+		if oldValue != "" && oldValue != value {
+			fmt.Printf("    %s → %s\n", hintStyle.Render(oldValue), valueStyle.Render(value))
+		} else {
+			fmt.Printf("    %s\n", valueStyle.Render(value))
+		}
+		fmt.Println()
+
 		return nil
 	},
 }
@@ -100,29 +135,66 @@ var listCmd = &cobra.Command{
 		v := reflect.ValueOf(cfg).Elem()
 		t := v.Type()
 
-		fmt.Println("Current configuration:")
-		fmt.Printf("%-20s %-20s %-10s\n", "KEY", "VALUE", "TYPE")
-		fmt.Println(strings.Repeat("-", 55))
+		fmt.Println()
+		fmt.Println(headerStyle.Render("  Configuration"))
+		fmt.Println()
 
+		// Find longest key for alignment
+		maxKeyLen := 0
+		for i := 0; i < v.NumField(); i++ {
+			field := t.Field(i)
+			jsonTag := field.Tag.Get("json")
+			if len(jsonTag) > maxKeyLen {
+				maxKeyLen = len(jsonTag)
+			}
+		}
+
+		// Print each config entry with better formatting
 		for i := 0; i < v.NumField(); i++ {
 			field := t.Field(i)
 			jsonTag := field.Tag.Get("json")
 			fieldVal := v.Field(i)
 
 			value := ""
+			typeStr := ""
 			switch fieldVal.Kind() {
 			case reflect.String:
 				value = fieldVal.String()
+				if value == "" {
+					value = hintStyle.Render("<not set>")
+				} else if jsonTag == "api_key" && value != "" {
+					// Mask API key
+					if len(value) > 8 {
+						value = value[:4] + "..." + value[len(value)-4:]
+					} else {
+						value = "***"
+					}
+					value = valueStyle.Render(value)
+				} else {
+					value = valueStyle.Render(value)
+				}
+				typeStr = "string"
 			case reflect.Int:
-				value = strconv.Itoa(int(fieldVal.Int()))
+				value = valueStyle.Render(strconv.Itoa(int(fieldVal.Int())))
+				typeStr = "int"
 			default:
-				value = "<unsupported type>"
+				value = hintStyle.Render("<unsupported>")
+				typeStr = "unknown"
 			}
 
-			fmt.Printf("%-20s %-20s %-10s\n", jsonTag, value, fieldVal.Kind().String())
+			// Format: key (type) : value
+			padding := strings.Repeat(" ", maxKeyLen-len(jsonTag))
+			fmt.Printf("  %s%s %s %s\n",
+				keyStyle.Render(jsonTag),
+				padding,
+				typeStyle.Render(fmt.Sprintf("(%s)", typeStr)),
+				value)
 		}
 
-		fmt.Println("\nUse `oneliner config set <KEY> <VALUE>` to update a setting.")
+		fmt.Println()
+		fmt.Println(hintStyle.Render("  Use 'oneliner config set <key> <value>' to update"))
+		fmt.Println()
+
 		return nil
 	},
 }
