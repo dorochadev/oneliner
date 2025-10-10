@@ -47,7 +47,6 @@ sudo mv oneliner /usr/local/bin/
 1. **Run oneliner for the first time** - A default config will be created at `~/.config/oneliner/config.json`
    - Oneliner automatically detects your OS during setup and sets the correct default shell
 (bash for Linux/macOS/WSL, powershell for Windows).
-Got it! We can keep the **nano/manual editing instructions** but add a note about the new CLI commands. Here’s a clean way to present it:
 
 ### 2. Add your API key
 
@@ -55,7 +54,7 @@ By default, you can manually edit the config file:
 
 ```bash
 nano ~/.config/oneliner/config.json
-````
+```
 
 **OpenAI example:**
 
@@ -95,8 +94,6 @@ nano ~/.config/oneliner/config.json
 > oneliner config set llm_api openai       # options: openai, claude, local
 > oneliner config set model gpt-4.1-nano  # examples: gpt-4.1-nano, gpt-3.5-turbo
 > ```
-
-```
 
 3. **Generate your first command:**
 
@@ -149,6 +146,120 @@ oneliner --explain "find files modified in last 24 hours"
 **Copy to clipboard:**
 ```bash
 oneliner -c "convert all png to jpg with imagemagick"
+```
+
+## Configuration Management
+
+Oneliner provides a `config` subcommand to manage configuration without manually editing JSON files.
+
+### View Current Configuration
+
+```bash
+oneliner config list
+```
+
+Example output:
+```
+Current configuration:
+KEY                  VALUE                TYPE      
+-------------------------------------------------------
+llm_api              openai               string    
+api_key              sk-...               string    
+model                gpt-4.1-nano         string    
+default_shell        bash                 string    
+local_llm_endpoint   http://localhost...  string    
+claude_max_tokens    1024                 int       
+request_timeout      60                   int       
+client_timeout       65                   int       
+
+Use `oneliner config set <KEY> <VALUE>` to update a setting.
+```
+
+### Update Configuration
+
+```bash
+oneliner config set <key> <value>
+```
+
+Examples:
+```bash
+# Set API key
+oneliner config set api_key sk-your-key-here
+
+# Change LLM provider
+oneliner config set llm_api claude
+
+# Change model
+oneliner config set model gpt-4.1-nano
+
+# Update default shell
+oneliner config set default_shell zsh
+
+# Configure Claude max tokens
+oneliner config set claude_max_tokens 2048
+
+# Set local LLM endpoint
+oneliner config set local_llm_endpoint http://localhost:8000/v1/completions
+```
+
+## Cache Management
+
+Oneliner provides a `cache` subcommand to manage cached commands.
+
+### List Cached Commands
+
+```bash
+oneliner cache list
+```
+
+Example output:
+```
+Found 3 cached command(s):
+
+abc12345 find . -name "*.jpg" -size +10M
+    Finds all JPEG files larger than 10MB in current directory
+    5 minutes ago
+
+def67890 ps aux | grep :8080
+    Lists all processes using port 8080
+    2 hours ago
+
+ghi11121 tar -czf logs.tar.gz *.log
+    1 day ago
+
+Use 'oneliner cache rm <id>' to remove a specific entry
+Use 'oneliner cache clear' to clear all entries
+```
+
+### Remove a Specific Cached Entry
+
+```bash
+oneliner cache rm <id>
+```
+
+You can use the full ID or just a prefix:
+```bash
+# Using short prefix
+oneliner cache rm abc
+
+# Using full ID
+oneliner cache rm abc12345678901234567890
+```
+
+Example output:
+```
+✓ Removed cached entry: abc12345
+```
+
+### Clear All Cache
+
+```bash
+oneliner cache clear
+```
+
+Example output:
+```
+✓ Cache cleared successfully
 ```
 
 ## Configuration
@@ -249,6 +360,18 @@ Generated commands are automatically cached based on:
 
 Cache location: `~/.cache/oneliner/commands.json` (or set `ONELINER_CACHE_PATH` env variable)
 
+### Managing Cache
+
+The cache helps speed up repeated queries, but you may want to manage it:
+
+- **View all cached commands**: `oneliner cache list`
+- **Remove specific entry**: `oneliner cache rm <id>`
+- **Clear all cache**: `oneliner cache clear`
+
+This is useful when:
+- You want to regenerate a command with different context
+- The cached command is outdated or incorrect
+
 ## Command Examples
 
 ### File Operations
@@ -330,6 +453,11 @@ Ensure the binary is in your PATH or use the full path to the executable.
 Delete the cache file to reset:
 ```bash
 rm ~/.cache/oneliner/commands.json
+```
+
+Or use the built-in command:
+```bash
+oneliner cache clear
 ```
 
 ## Contributing
