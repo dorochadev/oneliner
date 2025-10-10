@@ -58,11 +58,11 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&executeFlag, "execute", "e", false, "Execute the generated command as-is")
+	rootCmd.Flags().BoolVarP(&executeFlag, "run", "r", false, "Run the generated command as-is")
 	if runtime.GOOS != "windows" {
 		rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
 	}
-	rootCmd.Flags().BoolVar(&explainFlag, "explain", false, "Show an explanation of the generated command")
+	rootCmd.Flags().BoolVarP(&explainFlag, "explain", "e", false, "Show an explanation of the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
 	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard")
 
@@ -199,7 +199,7 @@ func executeCommand(command string, cfg *config.Config) error {
 	}
 
 	if err := executor.Execute(execCmd, cfg, sudoFlag); err != nil {
-		return fmt.Errorf("failed to execute command: %w", err)
+		return fmt.Errorf("failed to run command: %w", err)
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ A smart CLI tool that translates your intent into precise shell commands. No mor
 - 🤖 **Multiple LLM providers** - OpenAI, Claude, or your own local LLM
 - 🎨 **Beautiful terminal UI** - Styled output with lipgloss and spinner animations
 - 🛡️ **Smart safety checks** - Advanced risk assessment for destructive operations
-- ⚡ **Fast execution** - Optional command execution with `--execute` flag
+- ⚡ **Fast execution** - Optional command execution with `--run` flag
 - 📋 **Clipboard integration** - Copy commands directly with `--clipboard`
 - 📚 **Explain mode** - Get detailed explanations of what commands do
 - 🧠 **Context-aware** - Considers your OS, shell, directory, and user
@@ -93,7 +93,7 @@ The command is displayed for review but not executed by default.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--execute` | `-e` | Execute the generated command immediately |
+| `--run` | `-r` | Run the generated command immediately |
 | `--sudo` | | Prepend `sudo` to the command (Unix/Linux only) |
 | `--explain` | | Show a detailed explanation of the command |
 | `--clipboard` | `-c` | Copy the command to clipboard |
@@ -106,14 +106,14 @@ The command is displayed for review but not executed by default.
 oneliner "compress all log files in current directory"
 ```
 
-**Execute immediately:**
+**Run immediately:**
 ```bash
-oneliner -e "list all processes using port 8080"
+oneliner -r "list all processes using port 8080"
 ```
 
-**Execute with sudo:**
+**Run with sudo:**
 ```bash
-oneliner -e --sudo "update all system packages"
+oneliner -r --sudo "update all system packages"
 ```
 
 **Get an explanation:**
@@ -195,7 +195,7 @@ Your local LLM should provide a `/v1/completions` endpoint compatible with the f
 5. **Response Parsing** - Extracts command and optional explanation
 6. **Risk Assessment** - Analyzes the command for potential dangers
 7. **User Confirmation** - Prompts for confirmation if executing risky commands
-8. **Execution** - Runs the command in the appropriate shell (if `--execute` is used)
+8. **Execution** - Runs the command in the appropriate shell (if `--run` is used)
 
 ## Smart Safety Features
 
@@ -279,7 +279,7 @@ oneliner "extract audio from video.mp4"
 
 ## Security Best Practices
 
-1. **Review before execution** - Always check generated commands before using `--execute`
+1. **Review before execution** - Always check generated commands before using `--run`
 2. **Use `--explain`** - Understand what a command does before running it
 3. **Protect your config** - Config file is created with 0600 permissions
 4. **Be cautious with --sudo** - Only use when necessary and review the command
