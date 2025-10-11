@@ -10,13 +10,18 @@ A smart CLI tool that translates your intent into precise shell commands. No mor
 
 - 🤖 **Multiple LLM providers** - OpenAI, Claude, or your own local LLM
 - 🎨 **Beautiful terminal UI** - Styled output with lipgloss and spinner animations
-- 🛡️ **Smart safety checks** - Advanced risk assessment for destructive operations
-- ⚡ **Fast execution** - Optional command execution with `--run` flag
+- 🛡️ **Safety checks** - Regex-based risk detection (see warning above)
+- ⚡ **Fast execution** - Optional command execution with `--run` flag (use with extreme caution)
 - 📋 **Clipboard integration** - Copy commands directly with `--clipboard`
 - 📚 **Explain mode** - Get detailed explanations of what commands do
 - 🧠 **Context-aware** - Considers your OS, shell, directory, and user
 - 💾 **Intelligent caching** - Stores generated commands for instant reuse
 - 🐚 **Multi-shell support** - Bash, Zsh, Fish, PowerShell
+
+## Important safety summary
+ - `--run` (or `-r`) is highly unrecommended. Use it only if you're 100% sure about the command. AI-generated commands can and will brick your system if misused.
+ - The built-in risk assessment is JUST A REGEX check. It helps flag obvious dangerous patterns, but it is not a guarantee of safety. Do not rely on it to protect your system.
+ - Always review any generated command carefully. Prefer `--explain` and manual inspection over automatic execution.
 
 ## Installation
 
@@ -115,7 +120,7 @@ The command is displayed for review but not executed by default.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--run` | `-r` | Run the generated command immediately |
+| `--run` | `-r` | Run the generated command immediately (⚠️ use with extreme caution) |
 | `--sudo` | | Prepend `sudo` to the command (Unix/Linux only) |
 | `--explain` | | Show a detailed explanation of the command |
 | `--clipboard` | `-c` | Copy the command to clipboard |
@@ -202,66 +207,6 @@ oneliner config set claude_max_tokens 2048
 oneliner config set local_llm_endpoint http://localhost:8000/v1/completions
 ```
 
-## Cache Management
-
-Oneliner provides a `cache` subcommand to manage cached commands.
-
-### List Cached Commands
-
-```bash
-oneliner cache list
-```
-
-Example output:
-```
-Found 3 cached command(s):
-
-abc12345 find . -name "*.jpg" -size +10M
-    Finds all JPEG files larger than 10MB in current directory
-    5 minutes ago
-
-def67890 ps aux | grep :8080
-    Lists all processes using port 8080
-    2 hours ago
-
-ghi11121 tar -czf logs.tar.gz *.log
-    1 day ago
-
-Use 'oneliner cache rm <id>' to remove a specific entry
-Use 'oneliner cache clear' to clear all entries
-```
-
-### Remove a Specific Cached Entry
-
-```bash
-oneliner cache rm <id>
-```
-
-You can use the full ID or just a prefix:
-```bash
-# Using short prefix
-oneliner cache rm abc
-
-# Using full ID
-oneliner cache rm abc12345678901234567890
-```
-
-Example output:
-```
-✓ Removed cached entry: abc12345
-```
-
-### Clear All Cache
-
-```bash
-oneliner cache clear
-```
-
-Example output:
-```
-✓ Cache cleared successfully
-```
-
 ## Configuration
 
 ### Config File Location
@@ -335,8 +280,8 @@ Your local LLM should provide a `/v1/completions` endpoint compatible with the f
 
 ## Smart Safety Features
 
+### Disclaimer: The safety checks are not a sandbox. They are regexes that match risky-looking patterns (e.g., rm -rf, dd, mkfs, piping downloads to sh, etc.). This is a simple heuristic — useful, but not comprehensive.
 Oneliner includes comprehensive risk assessment that detects:
-
 - **Obfuscation techniques** - hex encoding, base64, eval/exec
 - **Privilege escalation** - sudo, su, doas, pkexec (unless intentional with `--sudo`)
 - **Destructive file operations** - rm -rf, find -delete, shred
