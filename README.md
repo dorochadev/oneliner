@@ -1,426 +1,215 @@
 # oneliner
 
-> Generate shell one-liners from natural language using LLMs
+> 🧠 Generate shell one-liners from natural language — safely, instantly, and beautifully.
 
-A smart CLI tool that translates your intent into precise shell commands. No more searching Stack Overflow for that perfect one-liner.
+Turn natural language into shell commands using LLMs (OpenAI, Claude, or local models).  
+Stop searching Stack Overflow, just tell your terminal what you want.
 
 ![Demo](./demo-assets-ignore/demo.gif)
 
-## Features
+---
 
-- 🤖 **Multiple LLM providers** - OpenAI, Claude, or your own local LLM
-- 🎨 **Beautiful terminal UI** - Styled output with lipgloss and spinner animations
-- 🛡️ **Safety checks** - Regex-based risk detection (see warning above)
-- ⚡ **Fast execution** - Optional command execution with `--run` flag (use with extreme caution)
-- 📋 **Clipboard integration** - Copy commands directly with `--clipboard`
-- 📚 **Explain mode** - Get detailed explanations of what commands do
-- 🧠 **Context-aware** - Considers your OS, shell, directory, and user
-- 💾 **Intelligent caching** - Stores generated commands for instant reuse
-- 🐚 **Multi-shell support** - Bash, Zsh, Fish, PowerShell
+## 🚀 Quick Install
 
-## Important safety summary
- - `--run` (or `-r`) is highly unrecommended. Use it only if you're 100% sure about the command. AI-generated commands can and will brick your system if misused.
- - The built-in risk assessment is JUST A REGEX check. It helps flag obvious dangerous patterns, but it is not a guarantee of safety. Do not rely on it to protect your system.
- - Always review any generated command carefully. Prefer `--explain` and manual inspection over automatic execution.
-
-## Installation
-
-### Prerequisites
-
-- Go 1.25.1 or higher
-- An API key from OpenAI or Anthropic (or a local LLM endpoint)
-
-### From Source
+Requires Go **1.25.1+**
 
 ```bash
-# Clone the repository
+go install github.com/dorochadev/oneliner@latest
+```
+
+Or build from source:
+
+```bash
 git clone https://github.com/dorochadev/oneliner.git
 cd oneliner
-
-# Download dependencies
-go mod download
-
-# Build the binary
 go build -o oneliner .
-
-# Install to your PATH
-sudo mv oneliner /usr/local/bin/
 ```
 
-## Quick Start
-
-1. **Run oneliner for the first time** - A default config will be created at `~/.config/oneliner/config.json`
-   - Oneliner automatically detects your OS during setup and sets the correct default shell
-(bash for Linux/macOS/WSL, powershell for Windows).
-
-### 2. Add your API key
-
-By default, you can manually edit the config file:
+**After installation, run the setup wizard:**
 
 ```bash
-nano ~/.config/oneliner/config.json
+oneliner setup
 ```
 
-**OpenAI example:**
+---
 
-```json
-{
-  "llm_api": "openai",
-  "api_key": "sk-...",
-  "model": "gpt-4.1-nano"
-}
+## ⚡ Quick Start
+
+### First Time Setup
+
+Run the interactive setup wizard to configure your LLM provider:
+
+```bash
+oneliner setup
 ```
 
-**Claude example:**
+This will guide you through:
+- 🎯 Choosing your LLM provider (OpenAI, Claude, or Local)
+- 🔑 Entering your API key
+- 🤖 Selecting a model
+- ⚙️ Additional configuration options
 
-```json
-{
-  "llm_api": "claude",
-  "api_key": "sk-ant-...",
-  "model": "claude-sonnet-4-20250514",
-  "claude_max_tokens": 1024
-}
-```
-
-**Local LLM example:**
-
-```json
-{
-  "llm_api": "local",
-  "local_llm_endpoint": "http://localhost:8000/v1/completions",
-  "model": "your-model-name"
-}
-```
-
-> 💡 **Tip:** You can also use the new `config` subcommand instead of editing the file manually:
->
-> ```bash
-> oneliner config set api_key sk-xxxx
-> oneliner config set llm_api openai       # options: openai, claude, local
-> oneliner config set model gpt-4.1-nano  # examples: gpt-4.1-nano, gpt-3.5-turbo
-> ```
-
-3. **Generate your first command:**
+### Generate Commands
 
 ```bash
 oneliner "find all jpg files larger than 10MB"
 ```
 
-## Usage
+👉 The command is **shown, not executed** by default — review before running.
 
-### Basic Command Generation
+### Manual Configuration (Optional)
 
-```bash
-oneliner "your query here"
+If you prefer to configure manually, the config file is located at:
+
+```
+~/.config/oneliner/config.json
 ```
 
-The command is displayed for review but not executed by default.
+Set your API key manually:
 
-### Available Flags
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--run` | `-r` | Run the generated command immediately (⚠️ use with extreme caution) |
-| `--sudo` | | Prepend `sudo` to the command (Unix/Linux only) |
-| `--explain` | | Show a detailed explanation of the command |
-| `--clipboard` | `-c` | Copy the command to clipboard |
-| `--config` | | Use a custom config file path |
-
-### Examples
-
-**Generate and review:**
 ```bash
-oneliner "compress all log files in current directory"
+oneliner config set llm_api openai
+oneliner config set api_key sk-xxxx
+oneliner config set model gpt-4o
 ```
 
-**Run immediately:**
+---
+
+## ✨ Features
+
+* 🤖 Supports **OpenAI, Claude, or local LLMs**
+* 🎯 **Interactive setup wizard** for easy configuration
+* 🧠 **Context-aware** — OS, shell, and directory detection
+* 🎨 **Pretty terminal UI** with Lipgloss & Bubble Tea
+* ⚡ **Fast** — cached results for repeated queries
+* 📋 **Clipboard copy**, explanations, and multi-shell output
+
+---
+
+## 💡 Examples
+
 ```bash
-oneliner -r "list all processes using port 8080"
+oneliner "find all files larger than 1GB"
+oneliner "show top 10 processes by CPU usage"
+oneliner "convert all png files to jpg"
+oneliner --explain "recursively delete node_modules folders"
+oneliner --clipboard "compress all pdfs in current directory"
 ```
 
-**Run with sudo:**
+---
+
+## ⚠️ Safety (Read)
+
+`oneliner` never runs commands unless you explicitly tell it to with `--run`.
+Even then, it performs a regex-based safety check to warn about dangerous commands.
+
+> Use `--run` and especially `--sudo` only when you're 100% sure what the command does.
+
+---
+
+## 🧰 Advanced Usage
+
+| Flag          | Short | Description                     |
+| ------------- | ----- | ------------------------------- |
+| `--run`       | `-r`  | Execute the command immediately |
+| `--sudo`      |       | Prepend `sudo` (Unix only)      |
+| `--explain`   | `-e`  | Show what the command does      |
+| `--clipboard` | `-c`  | Copy to clipboard               |
+| `--config`    |       | Custom config path              |
+
+---
+
+## ⚙️ Configuration
+
+### Interactive Setup
+
+Run the setup wizard anytime to reconfigure:
+
 ```bash
-oneliner -r --sudo "update all system packages"
+oneliner setup
 ```
 
-**Get an explanation:**
-```bash
-oneliner --explain "find files modified in last 24 hours"
-```
-
-**Copy to clipboard:**
-```bash
-oneliner -c "convert all png to jpg with imagemagick"
-```
-
-## Configuration Management
-
-Oneliner provides a `config` subcommand to manage configuration without manually editing JSON files.
-
-### View Current Configuration
+### View Configuration
 
 ```bash
 oneliner config list
 ```
 
-Example output:
-```
-Current configuration:
-KEY                  VALUE                TYPE      
--------------------------------------------------------
-llm_api              openai               string    
-api_key              sk-...               string    
-model                gpt-4.1-nano         string    
-default_shell        bash                 string    
-local_llm_endpoint   http://localhost...  string    
-claude_max_tokens    1024                 int       
-request_timeout      60                   int       
-client_timeout       65                   int       
-
-Use `oneliner config set <KEY> <VALUE>` to update a setting.
-```
-
 ### Update Configuration
 
 ```bash
-oneliner config set <key> <value>
-```
-
-Examples:
-```bash
-# Set API key
-oneliner config set api_key sk-your-key-here
-
-# Change LLM provider
 oneliner config set llm_api claude
-
-# Change model
-oneliner config set model gpt-4.1-nano
-
-# Update default shell
-oneliner config set default_shell zsh
-
-# Configure Claude max tokens
-oneliner config set claude_max_tokens 2048
-
-# Set local LLM endpoint
-oneliner config set local_llm_endpoint http://localhost:8000/v1/completions
+oneliner config set model gpt-4o
+oneliner config set api_key sk-xxxx
 ```
 
-## Configuration
+---
 
-### Config File Location
+## 🧩 Local LLM Support
 
-- Default: `~/.config/oneliner/config.json`
-- Custom: Use `--config /path/to/config.json`
-
-### Configuration Options
-
-```json
-{
-  "llm_api": "openai",
-  "api_key": "your-api-key",
-  "model": "gpt-4.1-nano",
-  "default_shell": "bash",
-  "local_llm_endpoint": "http://localhost:8000/v1/completions",
-  "claude_max_tokens": 1024,
-  "request_timeout": 60,
-  "client_timeout": 65
-}
-```
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `llm_api` | API provider: `openai`, `claude`, or `local` | `openai` |
-| `api_key` | Your API key (OpenAI or Claude) | `""` |
-| `model` | Model to use | `gpt-4.1-nano` |
-| `default_shell` | Target shell used for generated commands. Automatically set on first run based on your OS (bash for Linux/macOS/WSL, powershell for Windows).: `bash`, `zsh`, `fish`, `powershell` | `OS-detected` |
-| `local_llm_endpoint` | URL for local LLM API | `http://localhost:8000/v1/completions` |
-| `claude_max_tokens` | Max tokens for Claude responses | `1024` |
-| `request_timeout` | Request timeout in seconds | `60` |
-| `client_timeout` | Client timeout in seconds | `65` |
-
-### Using a Local LLM
+You can connect to your own model by selecting "local" in the setup wizard, or manually:
 
 ```json
 {
   "llm_api": "local",
   "local_llm_endpoint": "http://localhost:8000/v1/completions",
-  "model": "your-model-name"
+  "model": "llama3"
 }
 ```
 
-Your local LLM should provide a `/v1/completions` endpoint compatible with the following format:
+Or via config command:
 
-**Request:**
-```json
-{
-  "model": "model-name",
-  "prompt": "the full prompt"
-}
-```
-
-**Response:**
-```json
-{
-  "result": "generated command"
-}
-```
-
-## How It Works
-
-1. **Context Gathering** - Collects your OS, shell, current directory, and username
-2. **Cache Check** - Looks for a cached response for identical queries
-3. **Prompt Building** - Constructs a detailed prompt with system context
-4. **LLM Generation** - Sends request to configured LLM provider
-5. **Response Parsing** - Extracts command and optional explanation
-6. **Risk Assessment** - Analyzes the command for potential dangers
-7. **User Confirmation** - Prompts for confirmation if executing risky commands
-8. **Execution** - Runs the command in the appropriate shell (if `--run` is used)
-
-## Smart Safety Features
-
-### Disclaimer: The safety checks are not a sandbox. They are regexes that match risky-looking patterns (e.g., rm -rf, dd, mkfs, piping downloads to sh, etc.). This is a simple heuristic — useful, but not comprehensive.
-Oneliner includes comprehensive risk assessment that detects:
-- **Obfuscation techniques** - hex encoding, base64, eval/exec
-- **Privilege escalation** - sudo, su, doas, pkexec (unless intentional with `--sudo`)
-- **Destructive file operations** - rm -rf, find -delete, shred
-- **Disk operations** - dd, mkfs, fdisk, partition tools
-- **System file modifications** - /etc/passwd, /etc/shadow, /etc/sudoers
-- **Network operations** - piping downloads to shell, netcat command execution
-- **Resource exhaustion** - fork bombs, infinite loops
-- **Data exfiltration** - network uploads, remote copies
-
-When risks are detected, you'll see a detailed warning and confirmation prompt before execution.
-
-## Caching
-
-Generated commands are automatically cached based on:
-- Your query
-- Operating system
-- Current working directory
-- Username
-- Shell
-- Whether explanation was requested
-
-Cache location: `~/.cache/oneliner/commands.json` (or set `ONELINER_CACHE_PATH` env variable)
-
-### Managing Cache
-
-The cache helps speed up repeated queries, but you may want to manage it:
-
-- **View all cached commands**: `oneliner cache list`
-- **Remove specific entry**: `oneliner cache rm <id>`
-- **Clear all cache**: `oneliner cache clear`
-
-This is useful when:
-- You want to regenerate a command with different context
-- The cached command is outdated or incorrect
-
-## Command Examples
-
-### File Operations
 ```bash
-oneliner "find all files larger than 100MB"
-oneliner "recursively delete empty directories"
-oneliner "rename all files to lowercase in current directory"
-oneliner "find duplicate files by md5 hash"
+oneliner config set llm_api local
+oneliner config set local_llm_endpoint "http://localhost:8000/v1/completions"
+oneliner config set model llama3
 ```
 
-### System Administration
+---
+
+## 🧹 Cache Management
+
+View cached commands:
+
 ```bash
-oneliner "check disk usage of all mounted filesystems"
-oneliner "list all processes using more than 1GB of ram"
-oneliner "show which service is using port 3000"
-oneliner "monitor cpu usage in real-time"
+oneliner cache list
 ```
 
-### Text Processing
-```bash
-oneliner "count unique ip addresses in access.log"
-oneliner "extract all email addresses from file.txt"
-oneliner "replace all tabs with spaces in python files"
-oneliner "find all TODO comments in source code"
-```
+Clear cache:
 
-### Network & Web
-```bash
-oneliner "test if google.com is reachable"
-oneliner "download all pdfs from a webpage"
-oneliner "show all listening tcp ports"
-oneliner "curl with custom headers and post data"
-```
-
-### Git Operations
-```bash
-oneliner "show git commits from last week"
-oneliner "delete all merged branches"
-oneliner "find largest files in git history"
-```
-
-### Media Processing
-```bash
-oneliner "convert all mov files to mp4"
-oneliner "resize all images to 1920x1080"
-oneliner "extract audio from video.mp4"
-```
-
-## Environment Variables
-
-- `ONELINER_CACHE_PATH` - Override default cache location
-- `SHELL` - Detected automatically but can be overridden
-
-## Security Best Practices
-
-1. **Review before execution** - Always check generated commands before using `--run`
-2. **Use `--explain`** - Understand what a command does before running it
-3. **Protect your config** - Config file is created with 0600 permissions
-4. **Be cautious with --sudo** - Only use when necessary and review the command
-5. **Trust the risk assessment** - If warnings appear, take them seriously
-6. **Cache considerations** - Cached commands are reused for identical contexts
-
-## Troubleshooting
-
-### Command not found
-Ensure the binary is in your PATH or use the full path to the executable.
-
-### API errors
-- Verify your API key is correct
-- Check that you have API credits/quota remaining
-- Ensure your network can reach the API endpoints
-
-### Local LLM not working
-- Verify the endpoint URL is correct
-- Check that your local LLM server is running
-- Ensure the response format matches the expected structure
-
-### Cache issues
-Delete the cache file to reset:
-```bash
-rm ~/.cache/oneliner/commands.json
-```
-
-Or use the built-in command:
 ```bash
 oneliner cache clear
 ```
 
-## Contributing
+Remove specific cached entry:
 
-Contributions are welcome, Please feel free to submit a Pull Request.
+```bash
+oneliner cache rm <id>
+```
 
-## License
+---
+
+## 🛠️ Troubleshooting
+
+| Issue                         | Solution                           |
+| ----------------------------- | ---------------------------------- |
+| `oneliner: command not found` | Add `$(go env GOPATH)/bin` to PATH |
+| Configuration incomplete      | Run `oneliner setup`               |
+| API errors                    | Check API key and connectivity     |
+| Cache issues                  | Run `oneliner cache clear`         |
+
+---
+
+## 🧑‍💻 Contributing
+
+Pull requests are welcome! Feel free to open issues for bugs or feature requests.
+
+---
+
+## 📜 License
 
 MIT
 
-## Acknowledgments
+---
 
-Built with:
-- [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
-- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
-- [Spinner](https://github.com/briandowns/spinner) - Loading animations
-
-## Author
-
-[@dorochadev](https://github.com/dorochadev)
+> Built with ❤️ using [Cobra](https://github.com/spf13/cobra), [Bubble Tea](https://github.com/charmbracelet/bubbletea), and [Lipgloss](https://github.com/charmbracelet/lipgloss).
