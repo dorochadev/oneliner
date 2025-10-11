@@ -67,7 +67,15 @@ type localLLMResponse struct {
 
 func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 	if l.Endpoint == "" {
-		return "", fmt.Errorf("local LLM endpoint not configured")
+		return "", fmt.Errorf(
+			"Local LLM endpoint not configured.\n\n" +
+				"Quick setup:\n" +
+				"  → Run: oneliner setup\n\n" +
+				"Or manually configure:\n" +
+				"  → oneliner config set llm_api local\n" +
+				"  → oneliner config set local_llm_endpoint http://localhost:8000/v1/completions\n" +
+				"  → oneliner config set model llama3",
+		)
 	}
 
 	reqBody := localLLMRequest{
@@ -158,20 +166,14 @@ type openAIResponse struct {
 func (o *OpenAI) GenerateCommand(prompt string) (string, error) {
 	if o.APIKey == "" {
 		return "", fmt.Errorf(
-			"OpenAI API key not configured.\n\n"+
-				"Current configuration:\n"+
-				"  LLM API: %s\n"+
-				"  Model:   %s\n\n"+
-				"Default options:\n"+
-				"  LLM API: openai, claude, local\n"+
-				"  Model:   gpt-4.1-nano, gpt-3.5-turbo\n\n"+
-				"Set your API key:\n"+
-				"  → via config command: oneliner config set api_key sk-xxxx\n"+
-				"  → or environment variable: export OPENAI_API_KEY=sk-xxxx\n"+
-				"You can also change the LLM API or model using:\n"+
-				"  → oneliner config set llm_api openai\n"+
-				"  → oneliner config set model gpt-4.1-nano",
-			o.APIKey, o.Model,
+			"OpenAI API key not configured.\n\n" +
+				"Quick setup:\n" +
+				"  → Run: oneliner setup\n\n" +
+				"Or manually configure:\n" +
+				"  → oneliner config set llm_api openai\n" +
+				"  → oneliner config set api_key sk-xxxx\n" +
+				"  → oneliner config set model gpt-4o\n\n" +
+				"Get your API key: https://platform.openai.com/api-keys",
 		)
 	}
 
@@ -251,20 +253,14 @@ type claudeResponse struct {
 func (c *Claude) GenerateCommand(prompt string) (string, error) {
 	if c.APIKey == "" {
 		return "", fmt.Errorf(
-			"Claude API key not configured.\n\n"+
-				"Current configuration:\n"+
-				"  LLM API: %s\n"+
-				"  Model:   %s\n\n"+
-				"Default options:\n"+
-				"  LLM API: openai, claude, local\n"+
-				"  Model:   claude-v1, claude-v1-100k\n\n"+
-				"Set your API key:\n"+
-				"  → via config command: oneliner config set api_key sk-xxxx\n"+
-				"  → or environment variable: export CLAUDE_API_KEY=sk-xxxx\n"+
-				"You can also change the LLM API or model using:\n"+
-				"  → oneliner config set llm_api claude\n"+
-				"  → oneliner config set model claude-v1",
-			c.APIKey, c.Model,
+			"Claude API key not configured.\n\n" +
+				"Quick setup:\n" +
+				"  → Run: oneliner setup\n\n" +
+				"Or manually configure:\n" +
+				"  → oneliner config set llm_api claude\n" +
+				"  → oneliner config set api_key sk-ant-xxxx\n" +
+				"  → oneliner config set model claude-sonnet-4-5-20250929\n\n" +
+				"Get your API key: https://console.anthropic.com/",
 		)
 	}
 
