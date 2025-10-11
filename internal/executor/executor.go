@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -32,18 +33,22 @@ type confirmModel struct {
 	confirmed       bool
 	cancelled       bool
 	showSudoWarning bool
+	prompt          string
+	expectedInput   string
 }
 
-func initialModel(showSudoWarning bool) confirmModel {
+func initialModel(prompt, expectedInput string, showSudoWarning bool) confirmModel {
 	ti := textinput.New()
-	ti.Placeholder = "y/n"
+	ti.Placeholder = expectedInput
 	ti.Focus()
-	ti.CharLimit = 1
-	ti.Width = 20
+	ti.CharLimit = len(expectedInput) + 5
+	ti.Width = 50
 
 	return confirmModel{
 		textInput:       ti,
 		showSudoWarning: showSudoWarning,
+		prompt:          prompt,
+		expectedInput:   expectedInput,
 	}
 }
 
@@ -61,8 +66,10 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 			return m, tea.Quit
 		case "enter":
-			input := m.textInput.Value()
-			if input == "y" || input == "Y" {
+			input := strings.TrimSpace(strings.ToLower(m.textInput.Value()))
+			if m.expectedInput != "" && input == strings.ToLower(m.expectedInput) {
+				m.confirmed = true
+			} else if m.expectedInput == "" && (input == "y" || input == "Y") {
 				m.confirmed = true
 			} else {
 				m.cancelled = true
@@ -85,10 +92,11 @@ func (m confirmModel) View() string {
 		)
 	}
 
-	return fmt.Sprintf(
-		"%s\n\n",
-		m.textInput.View(),
-	)
+	if m.prompt != "" {
+		return fmt.Sprintf("%s\n\n%s", m.prompt, m.textInput.View())
+	}
+
+	return fmt.Sprintf("%s\n\n", m.textInput.View())
 }
 
 func runSudoAuth() error {
@@ -152,6 +160,57 @@ func runCommand(trimmed string) error {
 	return nil
 }
 
+func ensureRunConsent() (bool, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return false, fmt.Errorf("failed to locate user config dir: %w", err)
+	}
+
+	consentFile := filepath.Join(configDir, "oneliner", "consent_run.txt")
+
+	if _, err := os.Stat(consentFile); err == nil {
+		return true, nil
+	}
+
+	// Bubble Tea prompt
+	prompt := lipgloss.JoinVertical(lipgloss.Left,
+		warningStyle.Render(" ⚠ This is your first time using --run to automatically execute a command."),
+		dimStyle.Render("  AI-generated commands can cause irreversible damage to your system."),
+		cyanStyle.Render(" Type 'i understand' to continue:"),
+	)
+
+	fmt.Println()
+	p := tea.NewProgram(initialModel(prompt, "i understand", false))
+	m, err := p.Run()
+	if err != nil {
+		return false, fmt.Errorf("failed to show confirmation prompt: %w", err)
+	}
+	result := m.(confirmModel)
+
+	if result.cancelled || !result.confirmed {
+		fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
+		fmt.Print(" ")
+		fmt.Println(dimStyle.Render("• user did not confirm understanding"))
+		fmt.Println()
+		return false, nil
+	}
+
+	// create consent file
+	if err := os.MkdirAll(filepath.Dir(consentFile), 0755); err != nil {
+		return false, fmt.Errorf("failed to create config directory: %w", err)
+	}
+	if err := os.WriteFile(consentFile, []byte("consent=granted\n"), 0644); err != nil {
+		return false, fmt.Errorf("failed to create consent file: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Println(successStyle.Render("  ✓ Consent acknowledged"))
+	fmt.Println(dimStyle.Render("  • you will not see this warning again"))
+	fmt.Println()
+
+	return true, nil
+}
+
 func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 	trimmed := strings.TrimSpace(command)
 	assessment := AssessCommandRisk(trimmed, usedSudoFlag)
@@ -159,40 +218,42 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 	needsSudo := strings.HasPrefix(trimmed, "sudo ")
 	hasRiskAssessmentIssues := len(assessment.Reasons) > 0
 
+	ok, err := ensureRunConsent()
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+
 	// Case 1: Risks detected
 	if hasRiskAssessmentIssues {
 		fmt.Println()
 		fmt.Print(warningStyle.Render(" ❯ Command requires caution"))
 		fmt.Println()
 
-		// Print box top
 		fmt.Println(dimStyle.Render("  ┌─────────────────────────────────────────"))
 
-		// Print risks
 		for i, r := range assessment.Reasons {
 			fmt.Printf("%s %d) %s\n", dimStyle.Render("  │"), i+1, dimStyle.Render(r))
 		}
 
-		// Print command
 		fmt.Println(dimStyle.Render("  │"))
 		fmt.Print(dimStyle.Render("  │ "))
 		fmt.Print(cyanStyle.Render("❯"))
 		fmt.Print(" ")
 		fmt.Println(commandStyle.Render(trimmed))
-
-		// Print box bottom
 		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
 		fmt.Println()
 		fmt.Println(cyanStyle.Render("Proceed? [y/N]"))
-		// Confirm with Bubble Tea
-		p := tea.NewProgram(initialModel(false))
+
+		p := tea.NewProgram(initialModel("", "", false))
 		m, err := p.Run()
 		if err != nil {
 			return fmt.Errorf("failed to show confirmation prompt: %w", err)
 		}
 		result := m.(confirmModel)
 		if result.cancelled || !result.confirmed {
-			//fmt.Println()
 			fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
 			fmt.Print(" ")
 			fmt.Println(dimStyle.Render("• user aborted"))
@@ -200,7 +261,6 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 			return nil
 		}
 
-		// Authenticate sudo if required
 		if needsSudo {
 			if err := runSudoAuth(); err != nil {
 				return err
@@ -209,18 +269,15 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 
 		printCommand(trimmed, needsSudo)
 
-		// Case 2: Needs sudo but no risk issues
 	} else if needsSudo {
-		// Show sudo confirmation only if user explicitly passed --sudo
 		if usedSudoFlag {
-			p := tea.NewProgram(initialModel(true))
+			p := tea.NewProgram(initialModel("", "", true))
 			m, err := p.Run()
 			if err != nil {
 				return fmt.Errorf("failed to show confirmation prompt: %w", err)
 			}
 			result := m.(confirmModel)
 			if result.cancelled || !result.confirmed {
-				//fmt.Println()
 				fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
 				fmt.Print(" ")
 				fmt.Println(dimStyle.Render("• user aborted"))
@@ -229,18 +286,15 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 			}
 		}
 
-		// Authenticate sudo
 		if err := runSudoAuth(); err != nil {
 			return err
 		}
 
 		printCommand(trimmed, true)
 
-		// Case 3: Normal command
 	} else {
 		printCommand(trimmed, false)
 	}
 
-	// Execute the command
 	return runCommand(trimmed)
 }
