@@ -66,6 +66,11 @@ var setCmd = &cobra.Command{
 					// Set new value
 					switch fieldVal.Kind() {
 					case reflect.String:
+						if jsonTag == "local_llm_endpoint" && value != "" {
+							if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
+								return fmt.Errorf("endpoint must start with http:// or https://")
+							}
+						}
 						fieldVal.SetString(value)
 					case reflect.Int:
 						var intVal int
