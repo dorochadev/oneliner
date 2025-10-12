@@ -12,6 +12,7 @@ import (
 
 	"github.com/atotto/clipboard"
 	"github.com/briandowns/spinner"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dorochadev/oneliner/config"
 	"github.com/dorochadev/oneliner/internal/cache"
@@ -23,6 +24,7 @@ import (
 
 var (
 	executeFlag      bool
+	interactiveFlag  bool
 	sudoFlag         bool
 	explainFlag      bool
 	configPath       string
@@ -30,6 +32,8 @@ var (
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	promptStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	cancelStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	rng              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -63,9 +67,9 @@ func init() {
 		rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
 	}
 	rootCmd.Flags().BoolVarP(&explainFlag, "explain", "e", false, "Show an explanation of the generated command")
+	rootCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "Interactively run the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
 	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard")
-
 }
 
 func Execute() {
@@ -159,6 +163,14 @@ func handleCachedCommand(cached string, cfg *config.Config) error {
 	if executeFlag {
 		return executeCommand(command, cfg)
 	}
+
+	if interactiveFlag {
+		execute := displayInteractiveCommand(command, cfg)
+		if execute {
+			return executeCommand(command, cfg)
+		}
+	}
+
 	return nil
 }
 
@@ -175,6 +187,14 @@ func handleGeneratedCommand(response string, cfg *config.Config) error {
 	if executeFlag {
 		return executeCommand(command, cfg)
 	}
+
+	if interactiveFlag {
+		execute := displayInteractiveCommand(command, cfg)
+		if execute {
+			return executeCommand(command, cfg)
+		}
+	}
+
 	return nil
 }
 
@@ -187,6 +207,28 @@ func displayCommand(command, explanation string) {
 		fmt.Println(explanationStyle.Render(explanation))
 		fmt.Println()
 	}
+}
+
+func displayInteractiveCommand(command string, cfg *config.Config) bool {
+	fmt.Println()
+	fmt.Print(promptStyle.Render(" ❯ Run command? [y/N]"))
+	fmt.Println()
+
+	p := tea.NewProgram(executor.InterationModel("", "", false))
+	m, err := p.Run()
+	if err != nil {
+		return false
+	}
+	result := m.(executor.InteractionModel)
+	if result.Cancelled || !result.Confirmed {
+		fmt.Print(cancelStyle.Render("  ✗ CANCELLED"))
+		fmt.Print(" ")
+		fmt.Println(dimStyle.Render("• user aborted"))
+		fmt.Println()
+		return false
+	}
+
+	return true
 }
 
 func executeCommand(command string, cfg *config.Config) error {

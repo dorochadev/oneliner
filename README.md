@@ -70,13 +70,14 @@ A regex-based safety check warns about dangerous commands, but **do not rely on 
 
 ## 🧰 Usage Flags
 
-| Flag          | Short | Description                     |
-| ------------- | ----- | ------------------------------- |
-| `--run`       | `-r`  | Execute the command immediately |
-| `--sudo`      |       | Prepend `sudo` (Unix only)      |
-| `--explain`   | `-e`  | Show what the command does      |
-| `--clipboard` | `-c`  | Copy to clipboard               |
-| `--config`    |       | Custom config path              |
+| Flag            | Short | Description                     |
+| -------------   | ----- | ------------------------------- |
+| `--run`         | `-r`  | Execute the command immediately |
+| `--sudo`        |       | Prepend `sudo` (Unix only)      |
+| `--explain`     | `-e`  | Show what the command does      |
+| `--clipboard`   | `-c`  | Copy to clipboard               |
+| `--interactive` | `-i`  | Run in interactive mode         |
+| `--config`      |       | Custom config path              |
 
 ---
 
