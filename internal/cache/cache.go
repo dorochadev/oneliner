@@ -81,38 +81,23 @@ func (c *Cache) save() error {
 }
 
 func (c *Cache) saveNoLock() error {
-	dataCopy := make(map[string]cacheEntry, len(c.data))
-	for k, v := range c.data {
-		dataCopy[k] = v
-	}
-	path := c.path
 
-	dir := filepath.Dir(path)
+	data, err := json.MarshalIndent(c.data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding cache: %w", err)
+	}
+
+	dir := filepath.Dir(c.path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
-	// Write to temp file first, then rename for atomic operation
-	tempPath := path + ".tmp"
-	file, err := os.Create(tempPath)
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+	tempPath := c.path + ".tmp"
+	if err := os.WriteFile(tempPath, data, 0600); err != nil {
+		return fmt.Errorf("writing temp file: %w", err)
 	}
 
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(dataCopy); err != nil {
-		file.Close()
-		os.Remove(tempPath)
-		return fmt.Errorf("encoding cache: %w", err)
-	}
-
-	if err := file.Close(); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("closing temp file: %w", err)
-	}
-
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := os.Rename(tempPath, c.path); err != nil {
 		os.Remove(tempPath)
 		return fmt.Errorf("renaming temp file: %w", err)
 	}
@@ -133,8 +118,31 @@ func (c *Cache) Set(key, value string) error {
 		Command:   value,
 		Timestamp: time.Now(),
 	}
+	dataCopy := make(map[string]cacheEntry, len(c.data))
+	for k, v := range c.data {
+		dataCopy[k] = v
+	}
 	c.mu.Unlock()
-	return c.save()
+
+	data, err := json.MarshalIndent(dataCopy, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding cache: %w", err)
+	}
+
+	dir := filepath.Dir(c.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating cache directory: %w", err)
+	}
+
+	tempPath := c.path + ".tmp"
+	if err := os.WriteFile(tempPath, data, 0600); err != nil {
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := os.Rename(tempPath, c.path); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+	return nil
 }
 
 func HashQuery(query, osys, cwd, username, shell string, explain bool) string {
