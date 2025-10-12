@@ -182,7 +182,17 @@ func getCachePath() (string, error) {
 		}
 		cachePath = filepath.Join(home, ".cache", "oneliner", "commands.json")
 	}
-	return cachePath, nil
+
+	absPath, err := filepath.Abs(cachePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid cache path: %w", err)
+	}
+
+	if !strings.HasSuffix(absPath, ".json") {
+		return "", fmt.Errorf("cache path must be a .json file")
+	}
+
+	return absPath, nil
 }
 
 func loadCacheEntries(cachePath string) ([]cacheEntryWithID, error) {
