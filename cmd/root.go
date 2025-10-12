@@ -32,8 +32,8 @@ var (
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	promptStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	cancelStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	cyanStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
 	rng              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -211,7 +211,7 @@ func displayCommand(command, explanation string) {
 
 func displayInteractiveCommand(command string, cfg *config.Config) bool {
 	fmt.Println()
-	fmt.Print(promptStyle.Render(" ❯ Run command? [y/N]"))
+	fmt.Print(cyanStyle.Render("Run command? [y/N]"))
 	fmt.Println()
 
 	p := tea.NewProgram(executor.InterationModel("", "", false))

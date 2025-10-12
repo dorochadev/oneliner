@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
 type InteractionModel struct {
 	textInput       textinput.Model
 	Confirmed       bool
@@ -78,4 +77,3 @@ func (m InteractionModel) View() string {
 
 	return fmt.Sprintf("%s\n\n", m.textInput.View())
 }
-
