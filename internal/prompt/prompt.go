@@ -87,9 +87,13 @@ Do NOT restate the user's question or describe concepts generally.
 Keep it under 4 sentences.
 
 After the explanation add a 'BREAKDOWN:' section on a new line.
-In 'BREAKDOWN:' provide a numbered pipeline (1., 2., 3., ...) describing each stage of the command in execution order.
-Each numbered item must be one short paragraph (1-2 sentences) and use the format: '1. Stage — brief explanation'.
-Do not include code fences. Keep each step concise and focused on the transformation or data flow.
+In 'BREAKDOWN:' provide a **detailed numbered pipeline** describing each stage of the command in execution order.
+- Include every relevant flag, pipe, redirection, or expansion.
+- Explain what data is input/output at each step.
+- Clarify how intermediate transformations work.
+- Use as many numbered points as necessary; don't limit to a small fixed number.
+- Each item should be 1-3 sentences, clear and precise.
+Do NOT use code fences. Keep the focus on teaching the command's mechanics.
 `)
 		return
 	}
@@ -109,10 +113,14 @@ Keep it under 4 sentences.
 
 	if breakdown {
 		b.WriteString(`Output ONLY the command first (no code fences, no commentary before).
-Then add a 'BREAKDOWN:' section on a new line.
-In 'BREAKDOWN:' provide a numbered pipeline (1., 2., 3., ...) describing each stage of the command in execution order.
-Each numbered item must be one short paragraph (1-2 sentences) and use the format: '1. Stage — brief explanation'.
-Do not include code fences. Keep each step concise and focused on the transformation or data flow.
+		Then add a 'BREAKDOWN:' section on a new line.
+		In 'BREAKDOWN:' provide a **detailed numbered pipeline** explaining each part of the command:
+		- Cover every flag, pipe, redirection, or expansion used.
+		- Explain what each stage does to the data or environment.
+		- Include multiple numbered points if needed; do not limit the explanation.
+		- Each point should be 1-3 sentences.
+		- Focus on making the command fully understandable, as a learning guide.
+		Do NOT use code fences.
 `)
 		return
 	}
