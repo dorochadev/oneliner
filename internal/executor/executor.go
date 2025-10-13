@@ -238,9 +238,9 @@ func Execute(command string, cfg *config.Config, usedSudoFlag bool) error {
 			fmt.Printf("%s %d) %s\n", dimStyle.Render("  │"), i+1, dimStyle.Render(r))
 		}
 
-		fmt.Println(dimStyle.Render("  │"))
-		fmt.Print(dimStyle.Render("  │ "))
-		fmt.Print(cyanStyle.Render("❯"))
+		//fmt.Println(dimStyle.Render("  │"))
+		//fmt.Print(dimStyle.Render("  │ "))
+		//fmt.Print(cyanStyle.Render("❯"))
 		//fmt.Print(" ")
 		//fmt.Println(commandStyle.Render(trimmed))
 		fmt.Println(dimStyle.Render("  └─────────────────────────────────────────"))
