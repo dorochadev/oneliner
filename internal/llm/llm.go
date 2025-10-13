@@ -31,9 +31,6 @@ func New(cfg *config.Config) (LLM, error) {
 			MaxTokens: cfg.ClaudeMaxTokens,
 		}, nil
 	case "local":
-		if cfg.LocalLLMEndpoint == "" {
-			return nil, fmt.Errorf("local_llm_endpoint must be set in config for local LLM usage")
-		}
 		return &LocalLLM{
 			Endpoint:       cfg.LocalLLMEndpoint,
 			Model:          cfg.Model,
@@ -78,19 +75,77 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 		)
 	}
 
-	reqBody := localLLMRequest{
-		Model:  l.Model,
-		Prompt: prompt,
+	// Detect endpoint type
+	isLMStudioChat := strings.Contains(l.Endpoint, "/v1/chat/completions")
+	isLMStudioCompletions := !isLMStudioChat && strings.Contains(l.Endpoint, "/v1/completions")
+	isOllamaChat := strings.Contains(l.Endpoint, "/api/chat")
+	isOllamaGenerate := strings.Contains(l.Endpoint, "/api/generate")
+
+	var jsonData []byte
+	var err error
+
+	// 🧱 Build correct request payload based on endpoint
+	if isOllamaGenerate {
+		// Ollama /api/generate endpoint
+		jsonData, err = json.Marshal(map[string]any{
+			"model":  l.Model,
+			"prompt": prompt,
+			"stream": false,
+		})
+	} else if isOllamaChat {
+		// Ollama /api/chat endpoint
+		jsonData, err = json.Marshal(map[string]any{
+			"model": l.Model,
+			"messages": []map[string]string{
+				{"role": "user", "content": prompt},
+			},
+			"stream": false,
+		})
+	} else if isLMStudioChat {
+		// LM Studio /v1/chat/completions endpoint (OpenAI-compatible)
+		jsonData, err = json.Marshal(map[string]any{
+			"model": l.Model,
+			"messages": []map[string]string{
+				{"role": "user", "content": prompt},
+			},
+			"max_tokens":  512,
+			"temperature": 0.7,
+			"stream":      false,
+		})
+	} else if isLMStudioCompletions {
+		// LM Studio /v1/completions endpoint
+		jsonData, err = json.Marshal(map[string]any{
+			"model":       l.Model,
+			"prompt":      prompt,
+			"max_tokens":  512,
+			"temperature": 0.7,
+			"stream":      false,
+		})
+	} else {
+		// Default: try OpenAI-compatible chat format (most common)
+		jsonData, err = json.Marshal(map[string]any{
+			"model": l.Model,
+			"messages": []map[string]string{
+				{"role": "user", "content": prompt},
+			},
+			"max_tokens":  512,
+			"temperature": 0.7,
+			"stream":      false,
+		})
 	}
 
-	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("marshaling request: %w", err)
+		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
+	// Timeouts
 	timeout := l.RequestTimeout
 	if timeout == 0 {
 		timeout = 60 * time.Second
+	}
+	clientTimeout := l.ClientTimeout
+	if clientTimeout == 0 {
+		clientTimeout = 65 * time.Second
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -98,16 +153,11 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
+		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	clientTimeout := l.ClientTimeout
-	if clientTimeout == 0 {
-		clientTimeout = 65 * time.Second
-	}
 	client := &http.Client{Timeout: clientTimeout}
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
@@ -119,30 +169,104 @@ func (l *LocalLLM) GenerateCommand(prompt string) (string, error) {
 		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10MB limit
+	// Try to detect if response is streaming NDJSON (Ollama)
+	// we will look at the content to see if it looks like NDJSON
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
-		return "", fmt.Errorf("reading response: %w", err)
+		return "", fmt.Errorf("read response: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("local LLM error (status %d): %s", resp.StatusCode, string(body))
+	// Check if it's NDJSON by looking for newline-separated JSON objects
+	if isOllamaGenerate || isOllamaChat {
+		lines := strings.Split(string(bodyBytes), "\n")
+		var textBuilder strings.Builder
+		foundResponse := false
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			var msg map[string]any
+			if err := json.Unmarshal([]byte(line), &msg); err != nil {
+				continue // Not valid JSON, skip
+			}
+
+			foundResponse = true
+
+			// Ollama /api/generate response format
+			if part, ok := msg["response"].(string); ok {
+				textBuilder.WriteString(part)
+			}
+
+			// Ollama /api/chat response format
+			if message, ok := msg["message"].(map[string]any); ok {
+				if content, ok := message["content"].(string); ok {
+					textBuilder.WriteString(content)
+				}
+			}
+
+			// Check if this is the final message
+			if done, ok := msg["done"].(bool); ok && done {
+				break
+			}
+		}
+
+		if foundResponse {
+			out := strings.TrimSpace(textBuilder.String())
+			if out == "" {
+				return "", fmt.Errorf("empty response from local LLM")
+			}
+			return out, nil
+		}
 	}
 
-	var result localLLMResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("parsing response: %w", err)
+	// Parse as standard JSON response
+
+	// LM Studio / OpenAI completions format
+	var lmCompletion struct {
+		Choices []struct {
+			Text string `json:"text"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(bodyBytes, &lmCompletion); err == nil && len(lmCompletion.Choices) > 0 {
+		if txt := strings.TrimSpace(lmCompletion.Choices[0].Text); txt != "" {
+			return txt, nil
+		}
 	}
 
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("no response from local LLM")
+	// OpenAI-style chat completions format (LM Studio /v1/chat/completions)
+	var openAIChat struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(bodyBytes, &openAIChat); err == nil && len(openAIChat.Choices) > 0 {
+		if msg := strings.TrimSpace(openAIChat.Choices[0].Message.Content); msg != "" {
+			return msg, nil
+		}
 	}
 
-	text := result.Choices[0].Text
-	if len(strings.TrimSpace(text)) == 0 {
-		return "", fmt.Errorf("empty response from local LLM")
+	// Ollama non-streaming response
+	var ollama struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+		Response string `json:"response"`
+	}
+	if err := json.Unmarshal(bodyBytes, &ollama); err == nil {
+		if ollama.Message.Content != "" {
+			return strings.TrimSpace(ollama.Message.Content), nil
+		}
+		if ollama.Response != "" {
+			return strings.TrimSpace(ollama.Response), nil
+		}
 	}
 
-	return text, nil
+	return "", fmt.Errorf("empty response from local LLM: %s", string(bodyBytes))
 }
 
 // ─── OPENAI
