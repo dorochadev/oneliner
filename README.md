@@ -1,9 +1,8 @@
 # oneliner 🧠
 
-> Turn plain English into shell commands using OpenAI, Claude, or local LLMs,  **designed to teach, not replace your knowledge**.
+> Turn plain English into shell commands using OpenAI, Claude, or local LLMs, **designed to teach, not replace your knowledge**.
 
-We’ve all been there: you know what command you want to run, but the syntax, `awk`, `find`, or `sed`, slips your mind. `oneliner` helps you **figure it out in your terminal**, so you can learn as you go, without leaving the shell or installing heavyweight tools like Warp or Claude CLI.
-
+We’ve all been there: you know what command you want to run, but the syntax, `awk`, `find`, or `sed` slips your mind. `oneliner` helps you **figure it out in your terminal**, so you can learn as you go, without leaving the shell or installing heavyweight tools like Warp or Claude CLI.
 
 ![Demo](./demo-assets-ignore/demo.gif)
 
@@ -15,7 +14,7 @@ Requires Go **1.25.1+**
 
 ```bash
 go install github.com/dorochadev/oneliner@latest
-````
+```
 
 Or build from source:
 
@@ -41,6 +40,7 @@ Generate commands:
 oneliner "find all jpg files larger than 10MB"
 oneliner --explain "delete node_modules recursively"
 oneliner --clipboard "compress all pdfs"
+oneliner --breakdown "list all active network connections with details"
 ```
 
 > Commands are **shown, not executed** by default. Use `--run` only when you’re sure.
@@ -55,7 +55,7 @@ For configuration details, see the **Configuration** section below.
 * Context-aware (OS, shell, directory)
 * Pretty terminal UI (Lipgloss & Bubble Tea)
 * Fast, cached results
-* Clipboard copy & explanations
+* Clipboard copy, explanations, and detailed command breakdowns
 
 ---
 
@@ -70,14 +70,40 @@ A regex-based safety check warns about dangerous commands, but **do not rely on 
 
 ## 🧰 Usage Flags
 
-| Flag            | Short | Description                     |
-| -------------   | ----- | ------------------------------- |
-| `--run`         | `-r`  | Execute the command immediately |
-| `--sudo`        |       | Prepend `sudo` (Unix only)      |
-| `--explain`     | `-e`  | Show what the command does      |
-| `--clipboard`   | `-c`  | Copy to clipboard               |
-| `--interactive` | `-i`  | Run in interactive mode         |
-| `--config`      |       | Custom config path              |
+| Flag            | Short | Description                                  |
+| --------------- | ----- | -------------------------------------------- |
+| `--run`         | `-r`  | Execute the command immediately              |
+| `--sudo`        |       | Prepend `sudo` (Unix only)                   |
+| `--explain`     | `-e`  | Show a brief explanation of the command      |
+| `--clipboard`   | `-c`  | Copy command to clipboard                    |
+| `--interactive` | `-i`  | Run in interactive mode                      |
+| `--breakdown`   | `-b`  | Full educational breakdown of command stages |
+| `--config`      |       | Use a custom configuration file              |
+
+---
+
+## 🧠 Learn with `--breakdown`
+
+The `--breakdown` (`-b`) flag is designed for **learning and understanding**, not just quick answers. It provides a **detailed, step-by-step explanation** of how a shell command works.
+
+When you use `--breakdown`, `oneliner` will:
+
+* **Show the command first** (no execution unless `--run` is also used).
+* **Explain every stage** in a numbered list:
+
+  1. Each pipe, flag, or redirection is explained.
+  2. Data transformations between stages are described.
+  3. Shell expansions, substitutions, or environment effects are clarified.
+* **Provide multiple points as needed** — there’s no limit, so even complex commands are fully unpacked.
+* **Serve as an educational tool** so you can learn why and how commands work, not just copy them.
+
+### Example Usage
+
+```bash
+oneliner --breakdown "find all jpg files larger than 10MB"
+```
+
+> Output will include a numbered breakdown explaining each stage of the `find` command, what each option does, and how the pipeline processes files.
 
 ---
 
