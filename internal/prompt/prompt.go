@@ -21,7 +21,7 @@ const (
 )
 
 // Build constructs the prompt for the LLM. Returns an error if the query is too short or vague.
-func Build(ctx Context, cfg *config.Config, explain bool) (string, error) {
+func Build(ctx Context, cfg *config.Config, explain, breakdown bool) (string, error) {
 	trimmedQuery := strings.TrimSpace(ctx.Query)
 
 	// Validate query
@@ -48,7 +48,7 @@ func Build(ctx Context, cfg *config.Config, explain bool) (string, error) {
 	b.WriteString(fmt.Sprintf("  Shell: %s\n", ctx.Shell))
 
 	appendShellSpecificInstructions(&b, shell)
-	appendExplanationInstructions(&b, explain)
+	appendExplanationInstructions(&b, explain, breakdown)
 
 	return b.String(), nil
 }
@@ -75,7 +75,25 @@ func appendShellSpecificInstructions(b *strings.Builder, shell string) {
 	}
 }
 
-func appendExplanationInstructions(b *strings.Builder, explain bool) {
+func appendExplanationInstructions(b *strings.Builder, explain, breakdown bool) {
+	if explain && breakdown {
+		b.WriteString(`Output ONLY the command first (no code fences, no commentary before).
+Then add 'EXPLANATION:' on a new line.
+In the explanation:
+- Briefly describe what the command does overall
+- Mention what each main flag or pipe stage contributes
+- Explain *how* and *why* the command works
+Do NOT restate the user's question or describe concepts generally.
+Keep it under 4 sentences.
+
+After the explanation add a 'BREAKDOWN:' section on a new line.
+In 'BREAKDOWN:' provide a numbered pipeline (1., 2., 3., ...) describing each stage of the command in execution order.
+Each numbered item must be one short paragraph (1-2 sentences) and use the format: '1. Stage — brief explanation'.
+Do not include code fences. Keep each step concise and focused on the transformation or data flow.
+`)
+		return
+	}
+
 	if explain {
 		b.WriteString(`Output ONLY the command first (no code fences, no commentary before).
 Then add 'EXPLANATION:' on a new line.
@@ -86,7 +104,18 @@ In the explanation:
 Do NOT restate the user's question or describe concepts generally.
 Keep it under 4 sentences.
 `)
-	} else {
-		b.WriteString("Output only the command, nothing else.\n")
+		return
 	}
+
+	if breakdown {
+		b.WriteString(`Output ONLY the command first (no code fences, no commentary before).
+Then add a 'BREAKDOWN:' section on a new line.
+In 'BREAKDOWN:' provide a numbered pipeline (1., 2., 3., ...) describing each stage of the command in execution order.
+Each numbered item must be one short paragraph (1-2 sentences) and use the format: '1. Stage — brief explanation'.
+Do not include code fences. Keep each step concise and focused on the transformation or data flow.
+`)
+		return
+	}
+
+	b.WriteString("Output only the command, nothing else.\n")
 }

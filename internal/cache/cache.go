@@ -145,7 +145,7 @@ func (c *Cache) Set(key, value string) error {
 	return nil
 }
 
-func HashQuery(query, osys, cwd, username, shell string, explain bool) string {
+func HashQuery(query, osys, cwd, username, shell string, explain, breakdown bool) string {
 	h := sha256.New()
 	h.Write([]byte(query))
 	h.Write([]byte(osys))
@@ -154,6 +154,9 @@ func HashQuery(query, osys, cwd, username, shell string, explain bool) string {
 	h.Write([]byte(shell))
 	if explain {
 		h.Write([]byte("explain"))
+	}
+	if breakdown {
+		h.Write([]byte("breakdown"))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

@@ -27,10 +27,12 @@ var (
 	interactiveFlag  bool
 	sudoFlag         bool
 	explainFlag      bool
+	breakdownFlag    bool
 	configPath       string
 	clipboardFlag    bool
 	commandStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	explanationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	breakdownStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	cancelStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	cyanStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
@@ -67,6 +69,7 @@ func init() {
 		rootCmd.Flags().BoolVar(&sudoFlag, "sudo", false, "Prepend 'sudo' to the generated command when executing")
 	}
 	rootCmd.Flags().BoolVarP(&explainFlag, "explain", "e", false, "Show an explanation of the generated command")
+	rootCmd.Flags().BoolVarP(&breakdownFlag, "breakdown", "b", false, "Include a detailed breakdown/pipeline of how the command works")
 	rootCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "Interactively run the generated command")
 	rootCmd.Flags().StringVar(&configPath, "config", "", "Specify alternative config file")
 	rootCmd.Flags().BoolVarP(&clipboardFlag, "clipboard", "c", false, "Copy the generated command to clipboard")
@@ -95,7 +98,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to setup cache: %w", err)
 	}
 
-	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag)
+	hash := cache.HashQuery(ctx.Query, ctx.OS, ctx.CWD, ctx.Username, ctx.Shell, explainFlag, breakdownFlag)
 	if cached, ok := commandCache.Get(hash); ok {
 		return handleCachedCommand(cached, cfg)
 	}
@@ -107,7 +110,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// generate prompt
-	promptText, err := prompt.Build(ctx, cfg, explainFlag)
+	promptText, err := prompt.Build(ctx, cfg, explainFlag, breakdownFlag)
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
@@ -151,8 +154,8 @@ func generateWithSpinner(llmInstance llm.LLM, promptText string) (string, error)
 }
 
 func handleCachedCommand(cached string, cfg *config.Config) error {
-	command, explanation := parseResponse(cached)
-	displayCommand(command, explanation)
+	command, explanation, breakdown := parseResponse(cached)
+	displayCommand(command, explanation, breakdown)
 
 	if clipboardFlag {
 		if err := copyToClipboard(command); err != nil {
@@ -175,8 +178,8 @@ func handleCachedCommand(cached string, cfg *config.Config) error {
 }
 
 func handleGeneratedCommand(response string, cfg *config.Config) error {
-	command, explanation := parseResponse(response)
-	displayCommand(command, explanation)
+	command, explanation, breakdown := parseResponse(response)
+	displayCommand(command, explanation, breakdown)
 
 	if clipboardFlag {
 		if err := copyToClipboard(command); err != nil {
@@ -198,7 +201,7 @@ func handleGeneratedCommand(response string, cfg *config.Config) error {
 	return nil
 }
 
-func displayCommand(command, explanation string) {
+func displayCommand(command, explanation, breakdown string) {
 	fmt.Println(commandStyle.Render(command))
 
 	if explainFlag && explanation != "" {
@@ -207,9 +210,16 @@ func displayCommand(command, explanation string) {
 		fmt.Println(explanationStyle.Render(explanation))
 		fmt.Println()
 	}
+
+	if breakdownFlag && breakdown != "" {
+		fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
+		fmt.Print(dimStyle.Render("  ⤷ "))
+		fmt.Println(breakdownStyle.Render(breakdown))
+		fmt.Println()
+	}
 }
 
-func displayInteractiveCommand(command string, cfg *config.Config) bool {
+func displayInteractiveCommand(_ string, _ *config.Config) bool {
 	fmt.Println()
 	fmt.Print(cyanStyle.Render("Run command? [y/N]"))
 	fmt.Println()
@@ -291,10 +301,9 @@ func gatherContext(args []string) prompt.Context {
 	}
 }
 
-func parseResponse(response string) (command string, explanation string) {
+func parseResponse(response string) (command string, explanation string, breakdown string) {
 	r := strings.TrimSpace(response)
 
-	// remove any surrounding triple backticks with optional language
 	r = strings.TrimPrefix(r, "```bash")
 	r = strings.TrimPrefix(r, "```sh")
 	r = strings.TrimPrefix(r, "```shell")
@@ -304,20 +313,49 @@ func parseResponse(response string) (command string, explanation string) {
 	r = strings.TrimSuffix(r, "```")
 	r = strings.TrimSpace(r)
 
-	// split by EXPLANATION marker
-	if strings.Contains(r, "EXPLANATION:") {
-		parts := strings.SplitN(r, "EXPLANATION:", 2)
-		command = strings.TrimSpace(parts[0])
-		explanation = strings.TrimSpace(parts[1])
-	} else {
-		command = r
+	idxExp := strings.Index(r, "EXPLANATION:")
+	idxBrk := strings.Index(r, "BREAKDOWN:")
+
+	if idxExp == -1 && idxBrk == -1 {
+		command = strings.ReplaceAll(r, "```", "")
+		return command, "", ""
 	}
 
-	// remove any remaining backticks inside the command/explanation
-	command = strings.ReplaceAll(command, "```", "")
-	explanation = strings.ReplaceAll(explanation, "```", "")
+	firstIdx := -1
+	if idxExp >= 0 && (idxBrk == -1 || idxExp < idxBrk) {
+		firstIdx = idxExp
+	} else {
+		firstIdx = idxBrk
+	}
 
-	return command, explanation
+	command = strings.TrimSpace(r[:firstIdx])
+
+	rest := strings.TrimSpace(r[firstIdx:])
+
+	expPart := ""
+	brkPart := ""
+
+	if strings.Contains(rest, "EXPLANATION:") && strings.Contains(rest, "BREAKDOWN:") {
+		expIdx := strings.Index(rest, "EXPLANATION:")
+		brkIdx := strings.Index(rest, "BREAKDOWN:")
+		if expIdx < brkIdx {
+			expPart = strings.TrimSpace(rest[expIdx+len("EXPLANATION:") : brkIdx])
+			brkPart = strings.TrimSpace(rest[brkIdx+len("BREAKDOWN:"):])
+		} else {
+			brkPart = strings.TrimSpace(rest[brkIdx+len("BREAKDOWN:") : expIdx])
+			expPart = strings.TrimSpace(rest[expIdx+len("EXPLANATION:"):])
+		}
+	} else if strings.Contains(rest, "EXPLANATION:") {
+		expPart = strings.TrimSpace(strings.TrimPrefix(rest, "EXPLANATION:"))
+	} else if strings.Contains(rest, "BREAKDOWN:") {
+		brkPart = strings.TrimSpace(strings.TrimPrefix(rest, "BREAKDOWN:"))
+	}
+
+	command = strings.ReplaceAll(command, "```", "")
+	expPart = strings.ReplaceAll(expPart, "```", "")
+	brkPart = strings.ReplaceAll(brkPart, "```", "")
+
+	return command, expPart, brkPart
 }
 
 func copyToClipboard(command string) error {

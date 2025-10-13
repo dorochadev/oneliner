@@ -84,7 +84,7 @@ var cacheListCmd = &cobra.Command{
 			shortID := entry.ID[:min(8, len(entry.ID))]
 
 			// Parse command and explanation
-			command, explanation := parseResponse(entry.Command)
+			command, explanation, _ := parseResponse(entry.Command)
 
 			// Truncate command if too long
 			displayCmd := command
