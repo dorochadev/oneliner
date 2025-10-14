@@ -20,6 +20,7 @@ import (
 	"github.com/dorochadev/oneliner/internal/llm"
 	"github.com/dorochadev/oneliner/internal/prompt"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -204,17 +205,39 @@ func handleGeneratedCommand(response string, cfg *config.Config) error {
 func displayCommand(command, explanation, breakdown string) {
 	fmt.Println(commandStyle.Render(command))
 
+	width := 80
+	if fd := int(os.Stdout.Fd()); term.IsTerminal(fd) {
+		if w, _, err := term.GetSize(fd); err == nil && w > 0 {
+			width = w
+		}
+	}
+
+	contentWidth := width - 6
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+
+	textBoxStyle := lipgloss.NewStyle().
+		Width(contentWidth).
+		PaddingLeft(4).
+		PaddingRight(2).
+		Foreground(lipgloss.Color("8"))
+
+	headingStyle := dimStyle.Bold(true)
+
 	if explainFlag && explanation != "" {
 		fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
 		fmt.Print(dimStyle.Render("  ℹ "))
-		fmt.Println(explanationStyle.Render(explanation))
+		fmt.Println(headingStyle.Render("Explanation:"))
+		fmt.Println(textBoxStyle.Render(explanation))
 		fmt.Println()
 	}
 
 	if breakdownFlag && breakdown != "" {
 		fmt.Println(dimStyle.Render("  ───────────────────────────────────────"))
 		fmt.Print(dimStyle.Render("  ⤷ "))
-		fmt.Println(breakdownStyle.Render(breakdown))
+		fmt.Println(headingStyle.Render("Breakdown:"))
+		fmt.Println(textBoxStyle.Render(breakdown))
 		fmt.Println()
 	}
 }
