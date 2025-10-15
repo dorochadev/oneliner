@@ -9,6 +9,76 @@ import (
 	"github.com/dorochadev/oneliner/config"
 )
 
+var (
+	whitespaceRegex    = regexp.MustCompile(`\s+`)
+	hexEncodeRegex     = regexp.MustCompile(`\\x[0-9a-fA-F]{2}`)
+	base64Regex        = regexp.MustCompile(`base64|b64decode|atob`)
+	evalRegex          = regexp.MustCompile(`\beval\b|\bexec\b`)
+	revRegex           = regexp.MustCompile(`\brev\b`)
+	findDeleteRegex    = regexp.MustCompile(`\bfind\b.*-delete`)
+	shredRegex         = regexp.MustCompile(`\bshred\b`)
+	truncateRegex      = regexp.MustCompile(`\btruncate\b.*-s\s*0`)
+	forkBombRegex      = regexp.MustCompile(`:\(\)\s*\{\s*:\|:&\s*\};?:`)
+	infiniteLoopRegex  = regexp.MustCompile(`while\s+true|while\s*\[\s*1\s*\]|for\s*\(\(\s*;;\s*\)\)`)
+	sleepWaitReadRegex = regexp.MustCompile(`\b(sleep|wait|read)\b`)
+	ddLargeRegex       = regexp.MustCompile(`\bdd\b.*bs=.*count=.*[MGT]`)
+	tarNcRegex         = regexp.MustCompile(`\btar\b.*\|.*\bnc\b`)
+	curlUploadRegex    = regexp.MustCompile(`\bcurl\b.*--data.*@`)
+	wgetPostRegex      = regexp.MustCompile(`\bwget\b.*--post-file`)
+	scpRegex           = regexp.MustCompile(`\bscp\b.*@.*:`)
+	rsyncRegex         = regexp.MustCompile(`\brsync\b.*@.*:`)
+	chmodEtcRegex      = regexp.MustCompile(`\b(chmod|chown)\b.*/etc`)
+	chmodZeroRegex     = regexp.MustCompile(`\bchmod\b.*\b0+\b`)
+	// privilege escalation
+	sudoRegex   = regexp.MustCompile(`\bsudo\s+`)
+	suRegex     = regexp.MustCompile(`\bsu\s+`)
+	suDashRegex = regexp.MustCompile(`\bsu\s+-`)
+	doasRegex   = regexp.MustCompile(`\bdoas\b`)
+	pkexecRegex = regexp.MustCompile(`\bpkexec\b`)
+	// rm patterns
+	rmRegexes = []*regexp.Regexp{
+		regexp.MustCompile(`\brm\s+.*-[a-z]*r[a-z]*.*-[a-z]*f`),
+		regexp.MustCompile(`\brm\s+.*--recursive.*--force`),
+		regexp.MustCompile(`\brm\s+.*--force.*--recursive`),
+		regexp.MustCompile(`/bin/rm\s+.*-[a-z]*[rf]`),
+		regexp.MustCompile(`\$\((which\s+rm)\)`),
+	}
+	// dangerous path checks (independent checks)
+	dangerousPathRegexes = []*regexp.Regexp{
+		regexp.MustCompile(`\s+/\s*$`),
+		regexp.MustCompile(`\s+/\*`),
+		regexp.MustCompile(`\s+/home\b`),
+		regexp.MustCompile(`\s+/etc\b`),
+		regexp.MustCompile(`\s+/usr\b`),
+		regexp.MustCompile(`\s+/var\b`),
+		regexp.MustCompile(`\s+/boot\b`),
+		regexp.MustCompile(`\s+~\s*($|/)`),
+		regexp.MustCompile(`\s+\$home\b`),
+		regexp.MustCompile(`[a-z]:\\\?\*`),
+	}
+	// disk/partition operations
+	diskOpRegexes = []*regexp.Regexp{
+		regexp.MustCompile(`\bdd\b.*of\s*=\s*/dev/`),
+		regexp.MustCompile(`>\s*/dev/(sd[a-z]|nvme|hd[a-z])`),
+		regexp.MustCompile(`\bmkfs\b`),
+		regexp.MustCompile(`\bfdisk\b`),
+		regexp.MustCompile(`\bparted\b`),
+		regexp.MustCompile(`\bgdisk\b`),
+		regexp.MustCompile(`\bcfdisk\b`),
+		regexp.MustCompile(`\bmkswap\b`),
+		regexp.MustCompile(`\bsgdisk\b`),
+	}
+	// network patterns
+	networkRegexes = []*regexp.Regexp{
+		regexp.MustCompile(`(curl|wget).*\|.*\bsh\b`),
+		regexp.MustCompile(`(curl|wget).*\|.*\bbash\b`),
+		regexp.MustCompile(`(curl|wget).*\|.*\bpython\b`),
+		regexp.MustCompile(`(curl|wget).*>\s*/tmp/.*&&.*\bsh\b`),
+		regexp.MustCompile(`\bnc\b.*-l.*-e`),
+		regexp.MustCompile(`\bncat\b.*--exec`),
+	}
+)
+
 type RiskLevel int
 
 const (
@@ -27,7 +97,7 @@ type RiskAssessment struct {
 // Normalized command for pattern matching (lowercase, collapsed whitespace)
 func normalizeCommand(cmd string) string {
 	// Remove extra whitespace
-	normalized := regexp.MustCompile(`\s+`).ReplaceAllString(strings.TrimSpace(cmd), " ")
+	normalized := whitespaceRegex.ReplaceAllString(strings.TrimSpace(cmd), " ")
 	return strings.ToLower(normalized)
 }
 
@@ -36,22 +106,22 @@ func detectObfuscation(cmd string) []string {
 	var issues []string
 
 	// Hex encoding
-	if regexp.MustCompile(`\\x[0-9a-fA-F]{2}`).MatchString(cmd) {
+	if hexEncodeRegex.MatchString(cmd) {
 		issues = append(issues, "hex-encoded characters detected (possible obfuscation)")
 	}
 
 	// Base64
-	if regexp.MustCompile(`base64|b64decode|atob`).MatchString(cmd) {
+	if base64Regex.MatchString(cmd) {
 		issues = append(issues, "base64 encoding/decoding detected (possible obfuscation)")
 	}
 
 	// Eval constructs
-	if regexp.MustCompile(`\beval\b|\bexec\b`).MatchString(cmd) {
+	if evalRegex.MatchString(cmd) {
 		issues = append(issues, "eval/exec detected (dynamic code execution)")
 	}
 
 	// Reverse operations
-	if regexp.MustCompile(`\brev\b`).MatchString(cmd) {
+	if revRegex.MatchString(cmd) {
 		issues = append(issues, "reverse command detected (possible obfuscation)")
 	}
 
@@ -78,18 +148,18 @@ func detectPrivilegeEscalation(cmd string, intentionalSudo bool) []string {
 
 	// Sudo variants
 	patterns := []struct {
-		pattern string
+		pattern *regexp.Regexp
 		desc    string
 	}{
-		{`\bsudo\s+`, "sudo privilege escalation"},
-		{`\bsu\s+`, "su privilege escalation"},
-		{`\bsu\s+-`, "su with privilege escalation"},
-		{`\bdoas\b`, "doas privilege escalation"},
-		{`\bpkexec\b`, "pkexec privilege escalation"},
+		{sudoRegex, "sudo privilege escalation"},
+		{suRegex, "su privilege escalation"},
+		{suDashRegex, "su with privilege escalation"},
+		{doasRegex, "doas privilege escalation"},
+		{pkexecRegex, "pkexec privilege escalation"},
 	}
 
 	for _, p := range patterns {
-		if matched, _ := regexp.MatchString(p.pattern, normalized); matched {
+		if p.pattern.MatchString(normalized) {
 			issues = append(issues, p.desc)
 		}
 	}
@@ -103,38 +173,19 @@ func detectDestructiveFileOps(cmd string) []string {
 	normalized := normalizeCommand(cmd)
 
 	// rm variations
-	rmPatterns := []string{
-		`\brm\s+.*-[a-z]*r[a-z]*.*-[a-z]*f`, // rm -rf or -fr
-		`\brm\s+.*--recursive.*--force`,     // long form
-		`\brm\s+.*--force.*--recursive`,     // reversed
-		`/bin/rm\s+.*-[a-z]*[rf]`,           // direct path
-		`\$\(which\s+rm\)`,                  // which rm
-	}
-
-	for _, pattern := range rmPatterns {
-		if matched, _ := regexp.MatchString(pattern, normalized); matched {
+	for _, r := range rmRegexes {
+		if r.MatchString(normalized) {
 			// Check if targeting dangerous paths
-			dangerousPaths := []string{
-				`\s+/\s*$`,     // root
-				`\s+/\*`,       // root with wildcard
-				`\s+/home`,     // home dirs
-				`\s+/etc`,      // system config
-				`\s+/usr`,      // system binaries
-				`\s+/var`,      // system data
-				`\s+/boot`,     // boot files
-				`\s+~`,         // home directory
-				`\s+\$home`,    // $HOME variable
-				`[a-z]:\\\?\*`, // Windows drive root
-			}
-
-			for _, path := range dangerousPaths {
-				if matched, _ := regexp.MatchString(pattern+`.*`+path, normalized); matched {
-					issues = append(issues, fmt.Sprint("destructive rm command targeting critical path"))
+			foundDanger := false
+			for _, pathRe := range dangerousPathRegexes {
+				if pathRe.MatchString(normalized) {
+					issues = append(issues, "destructive rm command targeting critical path")
+					foundDanger = true
 					break
 				}
 			}
 
-			if len(issues) == 0 {
+			if !foundDanger {
 				issues = append(issues, "destructive rm -rf detected (verify target path)")
 			}
 			break
@@ -142,17 +193,17 @@ func detectDestructiveFileOps(cmd string) []string {
 	}
 
 	// find -delete
-	if regexp.MustCompile(`\bfind\b.*-delete`).MatchString(normalized) {
+	if findDeleteRegex.MatchString(normalized) {
 		issues = append(issues, "find -delete can remove many files (potentially destructive)")
 	}
 
 	// shred
-	if regexp.MustCompile(`\bshred\b`).MatchString(normalized) {
+	if shredRegex.MatchString(normalized) {
 		issues = append(issues, "shred detected (secure file deletion, unrecoverable)")
 	}
 
 	// truncate
-	if regexp.MustCompile(`\btruncate\b.*-s\s*0`).MatchString(normalized) {
+	if truncateRegex.MatchString(normalized) {
 		issues = append(issues, "truncate to zero detected (data loss)")
 	}
 
@@ -164,24 +215,19 @@ func detectDiskOperations(cmd string) []string {
 	var issues []string
 	normalized := normalizeCommand(cmd)
 
-	operations := []struct {
-		pattern string
-		desc    string
-	}{
-		{`\bdd\b.*of\s*=\s*/dev/`, "dd writing to raw device (can overwrite entire disk)"},
-		{`>\s*/dev/(sd[a-z]|nvme|hd[a-z])`, "output redirection to block device"},
-		{`\bmkfs\b`, "filesystem creation (will erase partition)"},
-		{`\bfdisk\b`, "disk partitioning tool"},
-		{`\bparted\b`, "partition editor"},
-		{`\bgdisk\b`, "GPT partition tool"},
-		{`\bcfdisk\b`, "curses-based partition tool"},
-		{`\bmkswap\b`, "swap creation (will erase partition)"},
-		{`\bsgdisk\b`, "GPT partition manipulation"},
-	}
-
-	for _, op := range operations {
-		if matched, _ := regexp.MatchString(op.pattern, normalized); matched {
-			issues = append(issues, op.desc)
+	for _, op := range diskOpRegexes {
+		if op.MatchString(normalized) {
+			desc := ""
+			switch {
+			case op == diskOpRegexes[0]:
+				desc = "dd writing to raw device (can overwrite entire disk)"
+			case op == diskOpRegexes[1]:
+				desc = "output redirection to block device"
+			default:
+				// Extract a more meaningful description from the regex pattern
+				desc = "disk/partition operation detected"
+			}
+			issues = append(issues, desc)
 		}
 	}
 
@@ -225,11 +271,11 @@ func detectSystemFileModification(cmd string) []string {
 	}
 
 	// Chmod/chown on system dirs
-	if matched, _ := regexp.MatchString(`\b(chmod|chown)\b.*/etc`, normalized); matched {
+	if chmodEtcRegex.MatchString(normalized) {
 		issues = append(issues, "permission change on /etc directory")
 	}
 
-	if matched, _ := regexp.MatchString(`\bchmod\b.*\b0+\b`, normalized); matched {
+	if chmodZeroRegex.MatchString(normalized) {
 		issues = append(issues, "chmod removing all permissions (files will be inaccessible)")
 	}
 
@@ -241,21 +287,24 @@ func detectNetworkOperations(cmd string) []string {
 	var issues []string
 	normalized := normalizeCommand(cmd)
 
-	patterns := []struct {
-		pattern string
-		desc    string
-	}{
-		{`(curl|wget).*\|.*sh`, "piping download directly to shell (dangerous)"},
-		{`(curl|wget).*\|.*bash`, "piping download to bash"},
-		{`(curl|wget).*\|.*python`, "piping download to python"},
-		{`(curl|wget).*>\s*/tmp/.*&&.*sh`, "download and execute pattern"},
-		{`nc\b.*-l.*-e`, "netcat with command execution"},
-		{`ncat\b.*--exec`, "ncat with command execution"},
-	}
-
-	for _, p := range patterns {
-		if matched, _ := regexp.MatchString(p.pattern, normalized); matched {
-			issues = append(issues, p.desc)
+	for _, p := range networkRegexes {
+		if p.MatchString(normalized) {
+			switch {
+			case p == networkRegexes[0]:
+				issues = append(issues, "piping download directly to shell (dangerous)")
+			case p == networkRegexes[1]:
+				issues = append(issues, "piping download to bash")
+			case p == networkRegexes[2]:
+				issues = append(issues, "piping download to python")
+			case p == networkRegexes[3]:
+				issues = append(issues, "download and execute pattern")
+			case p == networkRegexes[4]:
+				issues = append(issues, "netcat with command execution")
+			case p == networkRegexes[5]:
+				issues = append(issues, "ncat with command execution")
+			default:
+				issues = append(issues, "network operation detected")
+			}
 		}
 	}
 
@@ -267,19 +316,19 @@ func detectResourceExhaustion(cmd string) []string {
 	var issues []string
 
 	// Classic fork bomb
-	if matched, _ := regexp.MatchString(`:\(\)\s*\{\s*:\|:&\s*\};?:`, cmd); matched {
+	if forkBombRegex.MatchString(cmd) {
 		issues = append(issues, "fork bomb detected (will crash system)")
 	}
 
 	// Infinite loops
-	if regexp.MustCompile(`while\s+true|while\s*\[\s*1\s*\]|for\s*\(\(\s*;;\s*\)\)`).MatchString(cmd) {
-		if !regexp.MustCompile(`sleep|wait|read`).MatchString(cmd) {
+	if infiniteLoopRegex.MatchString(cmd) {
+		if !sleepWaitReadRegex.MatchString(cmd) {
 			issues = append(issues, "infinite loop without delay (potential resource exhaustion)")
 		}
 	}
 
 	// Massive file creation
-	if regexp.MustCompile(`\bdd\b.*bs=.*count=.*[MGT]`).MatchString(cmd) {
+	if ddLargeRegex.MatchString(cmd) {
 		issues = append(issues, "large file creation with dd")
 	}
 
@@ -291,20 +340,19 @@ func detectDataExfiltration(cmd string) []string {
 	var issues []string
 	normalized := normalizeCommand(cmd)
 
-	// Sending data over network
 	patterns := []struct {
-		pattern string
+		pattern *regexp.Regexp
 		desc    string
 	}{
-		{`tar.*\|.*nc`, "archiving and sending over network"},
-		{`\bcurl\b.*--data.*@`, "uploading file via curl"},
-		{`\bwget\b.*--post-file`, "uploading file via wget"},
-		{`scp.*@.*:`, "secure copy to remote host"},
-		{`rsync.*@.*:`, "rsync to remote host"},
+		{tarNcRegex, "archiving and sending over network"},
+		{curlUploadRegex, "uploading file via curl"},
+		{wgetPostRegex, "uploading file via wget"},
+		{scpRegex, "secure copy to remote host"},
+		{rsyncRegex, "rsync to remote host"},
 	}
 
 	for _, p := range patterns {
-		if matched, _ := regexp.MatchString(p.pattern, normalized); matched {
+		if p.pattern.MatchString(normalized) {
 			issues = append(issues, p.desc)
 		}
 	}
