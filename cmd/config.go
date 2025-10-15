@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -220,8 +222,60 @@ var listCmd = &cobra.Command{
 	},
 }
 
+var openCmd = &cobra.Command{
+	Use:   "open",
+	Short: "Open the default config in your editor",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfgPath := ""
+		if _, err := config.Load(cfgPath); err != nil {
+			return fmt.Errorf("failed to ensure config exists: %w", err)
+		}
+
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home dir: %w", err)
+		}
+		cfgPath = filepath.Join(home, ".config", "oneliner", "config.json")
+
+		editor := os.Getenv("EDITOR")
+		if editor != "" {
+			c := exec.Command(editor, cfgPath)
+			c.Stdin = os.Stdin
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+			if err := c.Run(); err != nil {
+				return fmt.Errorf("failed to open config with $EDITOR: %w", err)
+			}
+		} else {
+			switch runtime.GOOS {
+			case "windows":
+				c := exec.Command("cmd", "/C", "start", "", cfgPath)
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+				if err := c.Run(); err != nil {
+					return fmt.Errorf("failed to open config: %w", err)
+				}
+			case "darwin":
+				if err := exec.Command("open", cfgPath).Start(); err != nil {
+					return fmt.Errorf("failed to open config: %w", err)
+				}
+			default:
+				if err := exec.Command("xdg-open", cfgPath).Start(); err != nil {
+					return fmt.Errorf("failed to open config: %w", err)
+				}
+			}
+		}
+
+		fmt.Println()
+		fmt.Print(successStyle.Render("  ✓ Opened config"))
+		fmt.Println()
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(setCmd)
 	configCmd.AddCommand(listCmd)
+	configCmd.AddCommand(openCmd)
 }
