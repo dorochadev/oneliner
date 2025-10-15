@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/dorochadev/oneliner/config"
 )
 
 type RiskLevel int
@@ -351,6 +353,21 @@ func AssessCommandRisk(command string, usedSudoFlag bool) RiskAssessment {
 			if !seen[issue] {
 				seen[issue] = true
 				assessment.Reasons = append(assessment.Reasons, issue)
+			}
+		}
+	}
+
+	// Check for blacklisted binaries from config and mark critical if found
+	normalized := normalizeCommand(trimmed)
+	if cfg, err := config.Load(""); err == nil {
+		if len(cfg.BlacklistedBinaries) > 0 {
+			for _, bin := range cfg.BlacklistedBinaries {
+				pattern := `\b` + regexp.QuoteMeta(strings.ToLower(bin)) + `\b`
+				if matched, _ := regexp.MatchString(pattern, normalized); matched {
+					assessment.Reasons = append(assessment.Reasons, fmt.Sprintf("executes blacklisted binary: %s", bin))
+					assessment.Level = RiskCritical
+					return assessment
+				}
 			}
 		}
 	}

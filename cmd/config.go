@@ -182,9 +182,25 @@ var listCmd = &cobra.Command{
 			case reflect.Int:
 				value = valueStyle.Render(strconv.Itoa(int(fieldVal.Int())))
 				typeStr = "int"
+
+			case reflect.Slice:
+				// handle []string gracefully
+				if fieldVal.Len() == 0 {
+					value = hintStyle.Render("[]")
+				} else {
+					elems := make([]string, fieldVal.Len())
+					for j := 0; j < fieldVal.Len(); j++ {
+						elem := fieldVal.Index(j)
+						elems[j] = fmt.Sprintf("%v", elem.Interface())
+					}
+					joined := "[" + strings.Join(elems, ", ") + "]"
+					value = valueStyle.Render(joined)
+				}
+				typeStr = "array[string]"
+
 			default:
 				value = hintStyle.Render("<unsupported>")
-				typeStr = "unknown"
+				typeStr = fieldVal.Kind().String()
 			}
 
 			// Format: key (type) : value
