@@ -129,6 +129,7 @@ oneliner config list
 oneliner config set llm_api openai
 oneliner config set api_key sk-xxxx
 oneliner config set model gpt-4o
+oneliner config set blacklisted_binaries '["rm", "dd", "mkfs"]'
 ```
 
 * **Local LLM Example:**
@@ -141,6 +142,14 @@ oneliner config set model llama3
 
 * **Config File:** `~/.config/oneliner/config.json`
 
+* **Blacklisted Binaries:**
+
+`oneliner` automatically blocks generation or execution of unsafe commands.  
+The `blacklisted_binaries` list defines binaries considered dangerous, such as:
+
+```json
+"blacklisted_binaries": ["rm", "dd", "mkfs", "fdisk", "parted", "shred", "curl", "wget", "nc", "ncat"]
+```
 ---
 
 ## 🧩 Cache Management
